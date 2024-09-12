@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>xLogic - Materials</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .filters {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .filter-checkbox {
+            margin-right: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<h1>xLogic - Materials</h1>
+
+<div class="filters">
+    <label class="filter-checkbox"><input type="checkbox" id="laser-cutting" onclick="filterMaterials()"> Laser Cutting</label>
+    <label class="filter-checkbox"><input type="checkbox" id="cnc-routing" onclick="filterMaterials()"> CNC Routing</label>
+    <label class="filter-checkbox"><input type="checkbox" id="waterjet-cutting" onclick="filterMaterials()"> Waterjet Cutting</label>
+    <label class="filter-checkbox"><input type="checkbox" id="bending" onclick="filterMaterials()"> Bending</label>
+    <label class="filter-checkbox"><input type="checkbox" id="anodizing" onclick="filterMaterials()"> Anodizing</label>
+    <label class="filter-checkbox"><input type="checkbox" id="deburring" onclick="filterMaterials()"> Deburring</label>
+    <label class="filter-checkbox"><input type="checkbox" id="countersinking" onclick="filterMaterials()"> Countersinking</label>
+    <label class="filter-checkbox"><input type="checkbox" id="hardware-insertion" onclick="filterMaterials()"> Hardware Insertion</label>
+    <label class="filter-checkbox"><input type="checkbox" id="plating" onclick="filterMaterials()"> Plating</label>
+    <label class="filter-checkbox"><input type="checkbox" id="powder-coating" onclick="filterMaterials()"> Powder Coating</label>
+    <label class="filter-checkbox"><input type="checkbox" id="tapping" onclick="filterMaterials()"> Tapping</label>
+    <label class="filter-checkbox"><input type="checkbox" id="tumbling" onclick="filterMaterials()"> Tumbling</label>
+    <label class="filter-checkbox"><input type="checkbox" id="dimple-forming" onclick="filterMaterials()"> Dimple Forming</label>
+</div>
+
+<table id="materials-table">
+    <thead>
+        <tr>
+            <th>S. No.</th>
+            <th>Material</th>
+            <th>Available Thicknesses</th>
+            <th>Services</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Materials will be dynamically inserted here by JavaScript -->
+    </tbody>
+</table>
+
+<script>
+    const materials = [
+        { id: 1, name: '2024 T3 Aluminum', thickness: '0.025"', services: ['laser-cutting'], link: '2024-t3-aluminum.html' },
+        { id: 2, name: '5052 H32 Aluminum', thickness: '0.040", 0.050", 0.063", 0.080", 0.100", 0.125", 0.187", 0.250", 0.375", 0.500"', services: ['laser-cutting', 'bending', 'anodizing', 'deburring', 'countersinking', 'hardware-insertion', 'powder-coating', 'tapping', 'tumbling'], link: '5052-h32-aluminum.html' },
+        { id: 3, name: '6061 T6 Aluminum', thickness: '0.040", 0.063", 0.080", 0.125", 0.187", 0.250", 0.375", 0.500"', services: ['laser-cutting', 'bending', 'anodizing', 'deburring', 'countersinking', 'hardware-insertion', 'powder-coating', 'tapping', 'tumbling'], link: '6061-t6-aluminum.html' },
+        { id: 4, name: '7075 T6 Aluminum', thickness: '0.125", 0.190", 0.250"', services: ['laser-cutting', 'anodizing', 'countersinking', 'deburring', 'hardware-insertion', 'powder-coating', 'tapping', 'tumbling'], link: '7075-t6-aluminum.html' },
+        { id: 5, name: 'AR400 Steel', thickness: '0.250"', services: ['laser-cutting', 'tumbling'], link: 'ar400-steel.html' },
+        { id: 6, name: 'AR500 Steel', thickness: '0.119", 0.187", 0.250", 0.375", 0.500"', services: ['laser-cutting', 'tumbling'], link: 'ar500-steel.html' },
+        { id: 7, name: '1075 Blue Temper Spring Steel', thickness: '0.015"', services: ['laser-cutting'], link: '1075-blue-temper-spring-steel.html' },
+        { id: 8, name: 'Brass', thickness: '0.040", 0.063", 0.125", 0.187", 0.250"', services: ['laser-cutting', 'bending', 'deburring', 'tapping', 'tumbling'], link: 'brass.html' },
+        { id: 9, name: '4130 Chromoly', thickness: '0.050", 0.063", 0.125", 0.190", 0.250"', services: ['laser-cutting', 'bending', 'plating', 'powder-coating', 'tumbling'], link: '4130-chromoly.html' },
+        { id: 10, name: 'Copper', thickness: '0.040", 0.063", 0.125", 0.187", 0.250"', services: ['laser-cutting', 'bending', 'deburring', 'plating', 'tapping', 'tumbling'], link: 'copper.html' },
+        { id: 11, name: 'G90 Steel', thickness: '0.030", 0.036", 0.048", 0.059", 0.074"', services: ['laser-cutting', 'bending', 'powder-coating', 'hardware-insertion', 'tapping'], link: 'g90-steel.html' },
+        { id: 12, name: 'Mild Steel', thickness: '0.030", 0.048", 0.059", 0.074", 0.104", 0.119", 0.135", 0.187", 0.250", 0.375", 0.500"', services: ['laser-cutting', 'bending', 'hardware-insertion', 'plating', 'powder-coating', 'tapping', 'tumbling', 'dimple-forming'], link: 'mild-steel.html' },
+        { id: 13, name: 'Stainless Steel (304)', thickness: '0.030", 0.048", 0.060", 0.074", 0.100", 0.125", 0.187", 0.250", 0.375", 0.500"', services: ['laser-cutting', 'bending', 'deburring', 'hardware-insertion', 'powder-coating', 'tapping', 'tumbling'], link: 'stainless-steel-(304).html' },
+        { id: 14, name: 'Stainless Steel (316)', thickness: '0.060", 0.125", 0.187", 0.250"', services: ['laser-cutting', 'bending', 'deburring', 'hardware-insertion', 'powder-coating', 'tapping', 'tumbling'], link: 'stainless-steel-(316).html' },
+        { id: 15, name: 'Titanium (Grade 5)', thickness: '0.040", 0.060", 0.125", 0.187", 0.250"', services: ['laser-cutting', 'deburring', 'tumbling'], link: 'titanium-(grade-5).html' },
+        { id: 16, name: 'Titanium (Grade 2)', thickness: '0.040"', services: ['laser-cutting', 'bending'], link: 'titanium-(grade-2).html' },
+        { id: 17, name: 'ACM Panel', thickness: '0.118", 0.236"', services: ['cnc-routing', 'waterjet-cutting'], link: 'acm-panel.html' },
+        { id: 18, name: 'Carbon Fiber', thickness: '0.040", 0.063", 0.079", 0.118", 0.157", 0.197"', services: ['waterjet-cutting'], link: 'carbon-fiber.html' },
+        { id: 19, name: 'Cork (Gasket Grade)', thickness: '0.063", 0.125"', services: ['laser-cutting'], link: 'cork-(gasket-grade).html' },
+        { id: 20, name: 'G-10/FR-4', thickness: '0.063", 0.125", 0.250", 0.375"', services: ['waterjet-cutting'], link: 'g-10-fr-4.html' },
+        { id: 21, name: 'Phenolic', thickness: '0.125", 0.250", 0.375"', services: ['waterjet-cutting'], link: 'phenolic.html' },
+        { id: 22, name: 'ABS', thickness: '0.125", 0.187", 0.234"', services: ['cnc-routing', 'countersinking', 'tapping'], link: 'abs.html' },
+        { id: 23, name: 'Acrylic', thickness: '0.118", 0.177", 0.214"', services: ['laser-cutting'], link: 'acrylic.html' },
+        { id: 24, name: 'Delrin', thickness: '0.125", 0.270"', services: ['laser-cutting', 'cnc-routing', 'countersinking', 'tapping'], link: 'delrin.html' },
+        { id: 25, name: 'HDPE', thickness: '0.250", 0.375", 0.500"', services: ['cnc-routing', 'countersinking', 'tapping'], link: 'hdpe.html' },
+        { id: 26, name: 'Polycarbonate', thickness: '0.118", 0.177", 0.220"', services: ['cnc-routing', 'bending', 'tapping'], link: 'polycarbonate.html' },
+        { id: 27, name: 'UHMW', thickness: '0.375", 0.500"', services: ['cnc-routing', 'countersinking'], link: 'uhmw.html' },
+        { id: 28, name: 'Birch Plywood', thickness: '0.354", 0.472"', services: ['cnc-routing'], link: 'birch-plywood.html' },
+        { id: 29, name: 'Chipboard', thickness: '0.030"', services: ['laser-cutting'], link: 'chipboard.html' },
+        { id: 30, name: 'Hardboard', thickness: '0.125"', services: ['laser-cutting'], link: 'hardboard.html' },
+        { id: 31, name: 'MDF', thickness: '0.125", 0.250", 0.375", 0.472"', services: ['laser-cutting', 'cnc-routing'], link: 'mdf.html' },
+    ];
+
+    function filterMaterials() {
+        const filters = Array.from(document.querySelectorAll('.filters input[type="checkbox"]:checked')).map(input => input.id);
+        const filteredMaterials = materials.filter(material => filters.every(filter => material.services.includes(filter)));
+        displayMaterials(filteredMaterials);
+    }
+
+    function displayMaterials(materialList) {
+        const tbody = document.querySelector('#materials-table tbody');
+        tbody.innerHTML = '';
+        materialList.forEach(material => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${material.id}</td>
+                <td><a href="${material.link}">${material.name}</a></td>
+                <td>${material.thickness}</td>
+                <td>${material.services.join(', ').replace(/-/g, ' ')}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Initial display of all materials
+    displayMaterials(materials);
+</script>
+
+</body>
+</html>
