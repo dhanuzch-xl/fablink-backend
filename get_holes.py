@@ -57,13 +57,27 @@ def find_holes_in_step(shape):
         
         explorer_faces.Next()
     
-    # Remove the first coordinate (thickness) from each hole's center
+    if len(holes) == 0:
+        raise ValueError("No holes found in the shape.")
+    
+    # Calculate the average absolute value for each coordinate
+    sum_abs_values = [0, 0, 0]
+    for center, _ in holes:
+        for i, coord in enumerate(center):
+            sum_abs_values[i] += abs(coord)
+    
+    avg_abs_values = [sum_val / len(holes) for sum_val in sum_abs_values]
+    
+    # Find the index of the coordinate with the smallest average absolute value
+    min_index = avg_abs_values.index(min(avg_abs_values))
+    
+    # Remove the smallest average coordinate from each hole's center
     unique_holes_set = set()
     unique_holes = []
     removed_holes = []
     for center, diameter in holes:
         center_coords = list(center)
-        removed_value = center_coords.pop(0)  # Remove the first coordinate
+        removed_value = center_coords.pop(min_index)  # Remove the smallest average value
         hole_tuple = (tuple(center_coords), diameter)
         
         if hole_tuple not in unique_holes_set:
@@ -80,60 +94,45 @@ def get_removed_holes(file_path: str):
     return removed_holes
 
 # Example Usage
-file_path = "models/Plate_1.step"    
+file_path = "models/WP-15.step"    
 shape = load_step_file(file_path)
 unique_holes, removed_holes = find_holes_in_step(shape)
 
 # Return the selected and rejected holes
 print("Selected Holes:", len(unique_holes))
 print("Rejected Holes:", len(removed_holes))
-# # Output all holes
+# Output all holes
 print("Unique Holes:")
 for hole in unique_holes:
     print(f"Hole at {hole['center']} with diameter {hole['diameter']:.2f} mm (removed value: {hole['removed_value']:.2f})")
 
-# # print("\nRemoved Holes:")
-# # for hole in removed_holes:
-# #     print(f"Hole at {hole['center']} with diameter {hole['diameter']:.2f} mm (removed value: {hole['removed_value']:.2f})")
+# Plotting the unique holes
+x_coords_unique = [hole['center'][0] for hole in unique_holes]
+y_coords_unique = [hole['center'][1] for hole in unique_holes]
+diameters_unique = [hole['diameter'] for hole in unique_holes]
 
-# # Print the number of holes
-# print(f"\nTotal number of unique holes: {len(unique_holes)}")
-# print(f"Total number of removed holes: {len(removed_holes)}")
-# print(f"Total number of holes detected: {len(all_holes)}")
+# plt.figure(figsize=(10, 8))
+# plt.scatter(x_coords_unique, y_coords_unique, s=diameters_unique, alpha=0.5)
+# plt.xlabel('X Coordinate')
+# plt.ylabel('Y Coordinate')
+# plt.title('Unique Holes in Sheet Metal')
+# plt.grid(True)
+# plt.show()
 
-# # Print all detected holes
-# # print("\nAll Detected Holes:")
-# # for hole in all_holes:
-# #     center, diameter = hole
-# #     print(f"Hole at {center} with diameter {diameter:.2f} mm")
+# Plotting the removed holes
+x_coords_removed = [hole['center'][0] for hole in removed_holes]
+y_coords_removed = [hole['center'][1] for hole in removed_holes]
+diameters_removed = [hole['diameter'] for hole in removed_holes]
 
-# # Plotting the unique holes
-# x_coords_unique = [hole['center'][0] for hole in unique_holes]
-# y_coords_unique = [hole['center'][1] for hole in unique_holes]
-# diameters_unique = [hole['diameter'] for hole in unique_holes]
+# plt.figure(figsize=(10, 8))
+# plt.scatter(x_coords_removed, y_coords_removed, s=diameters_removed, alpha=0.5, color='red')
+# plt.xlabel('X Coordinate')
+# plt.ylabel('Y Coordinate')
+# plt.title('Removed Holes in Sheet Metal')
+# plt.grid(True)
+# plt.show()
 
-# # plt.figure(figsize=(10, 8))
-# # plt.scatter(x_coords_unique, y_coords_unique, s=diameters_unique, alpha=0.5)
-# # plt.xlabel('X Coordinate')
-# # plt.ylabel('Y Coordinate')
-# # plt.title('Unique Holes in Sheet Metal')
-# # plt.grid(True)
-# # plt.show()
-
-# # Plotting the removed holes
-# x_coords_removed = [hole['center'][0] for hole in removed_holes]
-# y_coords_removed = [hole['center'][1] for hole in removed_holes]
-# diameters_removed = [hole['diameter'] for hole in removed_holes]
-
-# # plt.figure(figsize=(10, 8))
-# # plt.scatter(x_coords_removed, y_coords_removed, s=diameters_removed, alpha=0.5, color='red')
-# # plt.xlabel('X Coordinate')
-# # plt.ylabel('Y Coordinate')
-# # plt.title('Removed Holes in Sheet Metal')
-# # plt.grid(True)
-# # plt.show()
-
-# # Plotting all detected holes
+# Plotting all detected holes
 # print("All holes:", len(all_holes))
 # for hole in all_holes:
 #     print(hole)
@@ -150,8 +149,8 @@ for hole in unique_holes:
 # plt.grid(True)
 # plt.show()
 
-# # Get and print removed holes using the new function
+# Get and print removed holes using the new function
 # removed_holes_only = get_removed_holes(file_path)
-# # print("\nRemoved Holes (using get_removed_holes function):")
-# # for hole in removed_holes_only:
-# #     print(f"Hole at {hole['center']} with diameter {hole['diameter']:.2f} mm (removed value: {hole['removed_value']:.2f})")
+# print("\nRemoved Holes (using get_removed_holes function):")
+# for hole in removed_holes_only:
+#     print(f"Hole at {hole['center']} with diameter {hole['diameter']:.2f} mm (removed value: {hole['removed_value']:.2f})")
