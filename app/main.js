@@ -22,7 +22,7 @@ function init() {
 
   // Add OrbitControls
   controls = new THREE.OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;  // Smooth control
+  controls.enableDamping = true;
   controls.dampingFactor = 0.25;
   controls.screenSpacePanning = false;
   controls.maxPolarAngle = Math.PI / 2;
@@ -39,33 +39,19 @@ function init() {
   const axesHelper = new THREE.AxesHelper(10);
   scene.add(axesHelper);
 
-  // Load STL model
-  const loader = new THREE.STLLoader();
-  loader.load('http://localhost:5000/convert_step_to_stl/WP-2', function (geometry) {
-    const material = new THREE.MeshPhongMaterial({ color: 0x0077ff, specular: 0x111111, shininess: 200 });
-    plate = new THREE.Mesh(geometry, material);
-    plate.scale.set(0.1, 0.1, 0.1);
-    scene.add(plate);
+  // File input handler
+  const fileInput = document.getElementById('file-input');
+  fileInput.addEventListener('change', function (event) {
+    const file = event.target.files[0];
+    if (file) {
+      uploadAndLoadFile(file);
+    }
   });
 
   // Raycaster for mouse interactions
   raycaster = new THREE.Raycaster();
   document.addEventListener('mousemove', onMouseMove, false);
 
-  // Load hole data from JSON
-    fetch('hole_data.json')
-    .then(response => response.json())
-    .then(data => {
-      // Apply the same scale factor to the hole positions
-      const scaleFactor = 0.1;  // Use the same scale factor as the STL model
-      data.forEach(hole => {
-        hole.position.x *= scaleFactor;
-        hole.position.y *= scaleFactor;
-        hole.position.z *= scaleFactor;
-      });
-      holes = data;
-    });
-  
   // Handle window resize
   window.addEventListener('resize', onWindowResize, false);
 
@@ -73,31 +59,66 @@ function init() {
   animate();
 }
 
+function uploadAndLoadFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  fetch('http://127.0.0.1:5000/api/upload_file', {
+      method: 'POST',
+      body: formData
+  })
+  .then(response => {
+      if (!response.ok) {
+          throw new Error(`Error: ${response.statusText}`);
+      }
+      return response.json();
+  })
+  .then(data => {
+      console.log('STL URL:', data.stlUrl);
+      console.log('Holes Data:', data.holes);  // Log the holes data
+
+      // Load the STL model
+      const loader = new THREE.STLLoader();
+      loader.load('http://127.0.0.1:5000' + data.stlUrl, function (geometry) {
+          const material = new THREE.MeshPhongMaterial({ color: 0x0077ff, specular: 0x111111, shininess: 200 });
+          plate = new THREE.Mesh(geometry, material);
+          plate.scale.set(0.1, 0.1, 0.1);
+          scene.add(plate);
+      });
+
+      // Store the holes data for further use (e.g., displaying tooltips)
+      holes = data.holes;
+  })
+  .catch(error => console.error('Error loading STL:', error));
+}
+
 function onMouseMove(event) {
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
   raycaster.setFromCamera(mouse, camera);
-  if (plate) {
-    const intersects = raycaster.intersectObject(plate);
+  
+  // Check if 'plate' is defined and is a mesh object
+  if (!plate || !plate.isMesh) {
+    return;  // Prevent further execution if 'plate' is not ready
+  }
 
-    if (intersects.length > 0) {
-      const hole = findNearestHole(intersects[0].point);
-      if (hole) {
-        tooltip.style.display = 'block';
-        tooltip.style.left = `${event.clientX + 5}px`;
-        tooltip.style.top = `${event.clientY + 5}px`;
-        tooltip.innerHTML = `
-          Diameter: ${hole.diameter} mm<br>
-          Depth: ${hole.depth} mm<br>
-          Coordinates: (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})
-        `
-      } else {
-        tooltip.style.display = 'none';
-      }
+  const intersects = raycaster.intersectObject(plate);
+  if (intersects.length > 0) {
+    const hole = findNearestHole(intersects[0].point);
+    if (hole) {
+      tooltip.style.display = 'block';
+      tooltip.style.left = `${event.clientX + 5}px`;
+      tooltip.style.top = `${event.clientY + 5}px`;
+      tooltip.innerHTML = `
+        Diameter: ${hole.diameter} mm<br>
+        Coordinates: (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})
+      `;
     } else {
       tooltip.style.display = 'none';
     }
+  } else {
+    tooltip.style.display = 'none';
   }
 }
 
@@ -118,6 +139,25 @@ function findNearestHole(point) {
   });
 
   return (minDist < 1) ? nearestHole : null;
+}
+
+function changeHoleSize(newSize) {
+  // Send API request to backend to resize holes
+  fetch('/api/change_hole_size', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ newSize })
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`Error: ${response.statusText}`);
+    }
+    return response.json();
+  })
+  .then(data => {
+    console.log('Hole size updated to:', newSize);
+  })
+  .catch(error => console.error('Error changing hole size:', error));
 }
 
 function onWindowResize() {

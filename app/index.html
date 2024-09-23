@@ -9,6 +9,14 @@
 <body>
   <div id="container"></div>
   <div class="tooltip" id="tooltip"></div>
+  
+  <!-- Slider for hole size manipulation -->
+  <label for="hole-slider">Hole Size:</label>
+  <input type="range" id="hole-slider" min="1" max="100" value="10" />
+  
+  <!-- File upload input for STEP/STL file -->
+  <label for="file-input">Upload STEP/STL File:</label>
+  <input type="file" id="file-input" accept=".stl,.step" />
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>

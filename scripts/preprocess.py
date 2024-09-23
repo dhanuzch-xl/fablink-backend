@@ -9,7 +9,7 @@ from OCC.Core.BRepBndLib import brepbndlib_Add
 from OCC.Extend.TopologyUtils import TopologyExplorer
 
 # Load the STEP file and extract the shapes
-step_file_path = os.path.join('..', 'models', 'WP-2.step')
+step_file_path = os.path.join( 'models', 'WP-2.step')
 big_shp_dict = read_step_file_with_names_colors(step_file_path)
 
 # Extract the shapes (keys are TopoDS_Shape objects)
@@ -56,7 +56,7 @@ def recognize_hole_faces():
 # Main execution
 if __name__ == "__main__":
     holes = recognize_hole_faces()
-    output_path = os.path.join('..', 'app', 'hole_data.json')
+    output_path = os.path.join('app', 'hole_data.json')
     with open(output_path, 'w') as f:
         json.dump(holes, f, indent=4)
     print(f"Hole data exported to {output_path}")
