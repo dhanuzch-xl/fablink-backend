@@ -307,23 +307,103 @@ function toggleHoleLock(hole) {
 }
 
 
-// Function to edit the hole's diameter (triggered by clicking the edit button)
-function editHoleDiameter(hole) {
-  const newDiameter = prompt(`Enter new diameter for hole at position (${hole.position.x}, ${hole.position.y}, ${hole.position.z}):`, hole.diameter);
-  if (newDiameter !== null) {
-      // Update the diameter in the backend (make a request to the server)
+function editHoleDiameter(diameter, index) {
+  const newDiameter = prompt(`Enter new diameter for hole with current diameter ${diameter} mm:`, diameter);
+  if (newDiameter !== null && !isNaN(newDiameter)) {
+      // Update the hole's diameter locally
+      holes[index].diameter = parseFloat(newDiameter);
+
+      // Update the hole in the model in real-time
+      updateHoleInModel(index, parseFloat(newDiameter));
+
+      // Send the updated diameter and hole data to the backend
+      const stepFile = document.getElementById('file-input').files[0]?.name;  // Ensure a file is selected
+      if (!stepFile) {
+          console.error('No STEP file selected for modification.');
+          return;
+      }
+
       fetch('/api/change_hole_size', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ newSize: parseFloat(newDiameter) })
+          body: JSON.stringify({
+              newSize: parseFloat(newDiameter),
+              holeData: holes[index],  // Send the updated hole data
+              stepFile: stepFile  // Send the current step file name
+          })
       })
-      .then(response => response.json())
+      .then(response => {
+          if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();  // Expect JSON response from the backend
+      })
       .then(data => {
-          console.log(`Hole diameter updated to: ${newDiameter}`);
+          console.log(`Server response:`, data);
+
+          // Use the modified STL file URL to reload the model
+          const modifiedStlUrl = data.modified_stl_file;
+          reloadModifiedModel(modifiedStlUrl);  // Load the updated STL model
       })
       .catch(error => console.error('Error updating hole size:', error));
   }
 }
+
+
+function reloadModifiedModel(stlUrl) {
+  // Remove the current plate from the scene, if it exists
+  if (plate) {
+      scene.remove(plate);
+      plate.geometry.dispose();  // Clean up resources
+      plate.material.dispose();  // Clean up resources
+  }
+
+  // Load the updated STL model from the modified STEP file
+  const loader = new THREE.STLLoader();
+  loader.load(stlUrl, function (geometry) {
+      const material = new THREE.MeshPhongMaterial({ color: 0x0077ff, specular: 0x111111, shininess: 200 });
+      plate = new THREE.Mesh(geometry, material);
+      plate.scale.set(0.1, 0.1, 0.1);  // Adjust scaling if necessary
+      scene.add(plate);
+      console.log('Updated STL model loaded and added to the scene.');
+  }, 
+  function (xhr) {
+      console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+  },
+  function (error) {
+      console.error('An error occurred while loading the STL model:', error);
+  });
+}
+
+
+
+
+
+function updateHoleInModel(holeIndex, newDiameter) {
+  const hole = holes[holeIndex];
+
+  // Remove the old hole highlight (if any)
+  if (highlightedHoleMesh) {
+      scene.remove(highlightedHoleMesh);
+      highlightedHoleMesh = null;
+  }
+
+  // Create a new hole with the updated diameter
+  const geometry = new THREE.SphereGeometry(newDiameter / 2, 16, 16);  // Adjust the geometry to the new diameter
+  const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });  // You can change the color as needed
+  highlightedHoleMesh = new THREE.Mesh(geometry, material);
+
+  // Set the position of the new hole (considering the scale)
+  highlightedHoleMesh.position.set(
+      hole.position.x * plate.scale.x,
+      hole.position.y * plate.scale.y,
+      hole.position.z * plate.scale.z
+  );
+
+  // Add the updated hole to the scene
+  scene.add(highlightedHoleMesh);
+}
+
 
 
 function onWindowResize() {
@@ -349,12 +429,12 @@ function processHoleData(holes) {
   console.log("Hole data container found, inserting data...");
 
   const categorizedHoles = {};
-  holes.forEach(hole => {
+  holes.forEach((hole, index) => {
       const diameter = Math.round(hole.diameter);
       if (!categorizedHoles[diameter]) {
           categorizedHoles[diameter] = [];
       }
-      categorizedHoles[diameter].push(hole);
+      categorizedHoles[diameter].push({ hole, index });  // Include the index for future editing
   });
 
   for (const diameter in categorizedHoles) {
@@ -371,9 +451,13 @@ function processHoleData(holes) {
       dropdownContent.className = 'dropdown-content';
 
       const holeList = document.createElement('ul');
-      holeGroup.forEach(hole => {
+      holeGroup.forEach(({ hole, index }) => {
           const holeItem = document.createElement('li');
-          holeItem.textContent = `Position: (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)}), Depth: ${hole.depth.toFixed(2)} mm`;
+          holeItem.innerHTML = `
+              Position: (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)}), 
+              Depth: ${hole.depth.toFixed(2)} mm 
+              <button onclick="editHoleDiameter(${hole.diameter}, ${index})">Edit Diameter</button>
+          `;
           holeList.appendChild(holeItem);
       });
 
@@ -389,9 +473,11 @@ function processHoleData(holes) {
         } else {
             dropdownContent.style.display = 'none';
         }
-    });
+      });
   }
 }
+
+
 
 
 function visualizeHolePositions() {
@@ -436,6 +522,7 @@ function displayHoleData(categorizedHoles) {
       dropdownContent.className = 'dropdown-content';
 
       const holeList = document.createElement('ul');
+      
       holeGroup.forEach((hole, index) => {
           const holeItem = document.createElement('li');
           holeItem.innerHTML = `
@@ -458,11 +545,7 @@ function displayHoleData(categorizedHoles) {
   }
 }
 
-// Function to handle diameter editing (for future implementation)
-function editHoleDiameter(diameter, index) {
-  console.log(`Editing hole with diameter ${diameter} mm, index: ${index}`);
-  // Placeholder for future diameter editing logic
-}
+
 
 
 function animate() {
