@@ -14,6 +14,7 @@ h2 {
   flex-direction: row-reverse;
   border: 1px solid blue;  /* Debugging border around flex container */
 }
+/* Tooltip styling */
 #tooltip {
   position: absolute;
   background-color: rgba(0, 0, 0, 0.75);
@@ -24,6 +25,7 @@ h2 {
   display: none;
   z-index: 10;
 }
+
 /* Styling for the 3D viewer container */
     /* CAD Viewer Container */
 #container {
@@ -64,8 +66,9 @@ h2 {
   background-color: #e1e1e1;
 }
 
+/* Dropdown content hidden initially */
 .dropdown-content {
-  display: block;
+  display: none;
   padding: 10px;
   border-left: 1px solid #ccc;
   border-right: 1px solid #ccc;
@@ -73,6 +76,8 @@ h2 {
   border-radius: 0 0 5px 5px;
   background-color: #fafafa;
 }
+
+
 
 
 /* Add some styling for the list of holes */

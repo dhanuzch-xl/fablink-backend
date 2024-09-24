@@ -11,15 +11,16 @@ function init() {
   // Create the scene
   scene = new THREE.Scene();
 
-  // Set up the camera
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 0, 50);
-
-  // Set up the renderer
+  const rect = container.getBoundingClientRect();
+  // Set up the renderer with the size of the container
   renderer = new THREE.WebGLRenderer();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(rect.width, rect.height);  // Match the container's size
   renderer.setClearColor(0xaaaaaa);  // Set background color
   container.appendChild(renderer.domElement);
+
+  // Adjust the camera's aspect ratio to match the container
+  camera = new THREE.PerspectiveCamera(75, rect.width / rect.height, 0.1, 1000);
+  camera.position.set(0, 0, 50);
 
   // Add OrbitControls
   controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -40,8 +41,6 @@ function init() {
   const axesHelper = new THREE.AxesHelper(10);
   scene.add(axesHelper);
 
-  // Make sure the tooltip is hidden initially
-  hideTooltip();
 
   // File input handler
   const fileInput = document.getElementById('file-input');
@@ -89,6 +88,8 @@ function uploadAndLoadFile(file) {
           scene.add(plate);
       });
 
+
+
       // Store the holes data for further use (e.g., displaying tooltips)
       holes = data.holes;
       
@@ -97,36 +98,58 @@ function uploadAndLoadFile(file) {
   })
   .catch(error => console.error('Error loading STL:', error));
 }
-
 function onMouseMove(event) {
-  // Convert mouse position to normalized device coordinates (-1 to +1) for raycasting
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  // Get the CAD viewer (container) size and position
+  const container = document.getElementById('container');
+  const rect = container.getBoundingClientRect();
+  
+  // Convert mouse position to normalized device coordinates (-1 to +1) relative to the CAD viewer
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
 
   // Perform raycasting only if the plate is defined
   if (plate) {
-      raycaster.setFromCamera(mouse, camera);
+    const box = new THREE.Box3().setFromObject(plate);  // Create a bounding box around the plate
+    const helper = new THREE.Box3Helper(box, 0xffff00);  // Yellow bounding box
+    scene.add(helper);  // Add the helper to the scene
 
-      // Check if the ray intersects with the 3D object (plate)
-      let intersects = raycaster.intersectObject(plate, true);
+    
+    raycaster.setFromCamera(mouse, camera);
+    visualizeRaycasting();  // Visualize the raycaster's direction
 
-      if (intersects.length > 0) {
-          // Find the nearest hole to the intersection point
-          let closestHole = findClosestHole(intersects[0].point);
+    // Check if the ray intersects with the 3D object (plate)
+    let intersects = raycaster.intersectObject(plate, true);
+    // console.log("Raycaster Intersects:", intersects);
+    if (intersects.length > 0) {
+        // Find the nearest hole to the intersection point
+        let closestHole = findClosestHole(intersects[0].point);
 
-          if (closestHole) {
-              // Display tooltip with hole data
-              showTooltip(event, closestHole);
-          } else {
-              hideTooltip();
-          }
-      } else {
-          hideTooltip();
-      }
+        if (closestHole) {
+            // Highlight corresponding hole in dropdown
+            highlightHoleInDropdown(closestHole);
+        } else {
+            removeHighlightFromDropdown();  // Remove highlight if no hole is detected
+        }
+    } else {
+        removeHighlightFromDropdown();
+    }
   } else {
-      hideTooltip(); // Ensure the tooltip is hidden if the plate isn't ready
+      removeHighlightFromDropdown();
   }
 }
+
+function visualizeRaycasting() {
+  // Remove existing arrow helper to avoid stacking
+  if (window.arrowHelper) {
+      scene.remove(window.arrowHelper);
+  }
+
+  // Adjust the length of the arrow to something smaller, e.g., 5 units instead of 20
+  window.arrowHelper = new THREE.ArrowHelper(raycaster.ray.direction, raycaster.ray.origin, 5, 0xff0000);  // Length of 5
+  scene.add(window.arrowHelper);
+}
+
 
 
 // Find the closest hole to the given point
@@ -147,49 +170,71 @@ function findClosestHole(point) {
   return closestHole;
 }
 
-// Show the tooltip with hole data
-function showTooltip(event, hole) {
-  const x = event.clientX;
-  const y = event.clientY;
+// Highlight the corresponding hole in the dropdown when hovered over
+function highlightHoleInDropdown(hole) {
+  const holeDataContainer = document.getElementById('hole-data');
+  const dropdownSections = holeDataContainer.getElementsByClassName('dropdown-section');
 
-  tooltip.style.left = `${x + 10}px`;  // Position the tooltip near the mouse
-  tooltip.style.top = `${y + 10}px`;
-  tooltip.textContent = `Hole Diameter: ${hole.diameter.toFixed(2)} mm
-                         Position: (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})
-                         Depth: ${hole.depth.toFixed(2)} mm`;
-  tooltip.style.display = 'block';
+  // Remove existing highlights
+  removeHighlightFromDropdown();
+
+  // Loop through dropdown sections and highlight the matching hole
+  Array.from(dropdownSections).forEach((section) => {
+      const holeItems = section.getElementsByTagName('li');
+      Array.from(holeItems).forEach((item) => {
+          if (item.textContent.includes(`(${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})`)) {
+              item.style.backgroundColor = 'yellow';  // Highlight the corresponding hole
+              // Add an edit button next to the highlighted hole
+              const editButton = document.createElement('button');
+              editButton.textContent = 'Edit Diameter';
+              editButton.onclick = () => editHoleDiameter(hole);
+              item.appendChild(editButton);
+          }
+      });
+  });
 }
 
-// Hide the tooltip when the mouse is not near a hole
-function hideTooltip() {
-  tooltip.style.display = 'none';
+// Remove the highlight from all dropdown entries
+function removeHighlightFromDropdown() {
+  const holeDataContainer = document.getElementById('hole-data');
+  const highlightedItems = holeDataContainer.querySelectorAll('li[style*="background-color"]');
+
+  // Remove the background color and edit button from all highlighted items
+  Array.from(highlightedItems).forEach(item => {
+      item.style.backgroundColor = '';
+      const editButton = item.querySelector('button');
+      if (editButton) {
+          editButton.remove();
+      }
+  });
 }
 
-
-
-function changeHoleSize(newSize) {
-  // Send API request to backend to resize holes
-  fetch('/api/change_hole_size', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ newSize })
-  })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error(`Error: ${response.statusText}`);
-    }
-    return response.json();
-  })
-  .then(data => {
-    console.log('Hole size updated to:', newSize);
-  })
-  .catch(error => console.error('Error changing hole size:', error));
+// Function to edit the hole's diameter (triggered by clicking the edit button)
+function editHoleDiameter(hole) {
+  const newDiameter = prompt(`Enter new diameter for hole at position (${hole.position.x}, ${hole.position.y}, ${hole.position.z}):`, hole.diameter);
+  if (newDiameter !== null) {
+      // Update the diameter in the backend (make a request to the server)
+      fetch('/api/change_hole_size', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newSize: parseFloat(newDiameter) })
+      })
+      .then(response => response.json())
+      .then(data => {
+          console.log(`Hole diameter updated to: ${newDiameter}`);
+      })
+      .catch(error => console.error('Error updating hole size:', error));
+  }
 }
+
 
 function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  const container = document.getElementById('container');
+  const rect = container.getBoundingClientRect();
+
+  camera.aspect = rect.width / rect.height;  // Set aspect ratio to container's dimensions
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(rect.width, rect.height);  // Resize the renderer to match the container
 }
 
 function processHoleData(holes) {
@@ -239,8 +284,14 @@ function processHoleData(holes) {
       dropdownSection.appendChild(dropdownContent);
       holeDataContainer.appendChild(dropdownSection);
 
-      // Log each section as it gets appended
-      console.log("Appended dropdown section for diameter:", diameter);
+      // Add click event to toggle dropdown visibility
+      dropdownHeader.addEventListener('click', () => {
+        if (dropdownContent.style.display === 'none') {
+            dropdownContent.style.display = 'block';
+        } else {
+            dropdownContent.style.display = 'none';
+        }
+    });
   }
 }
 
