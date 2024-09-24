@@ -95,10 +95,41 @@ function uploadAndLoadFile(file) {
       
       // Process and display the holes in the UI categorized by diameter
       processHoleData(data.holes);
+
+
   })
   .catch(error => console.error('Error loading STL:', error));
 }
+
+
+let selectedHole = null;
+
+document.addEventListener('click', (event) => {
+    if (plate) {
+        
+        // Call this function once the model is loaded
+        //visualizeHolePositions();
+        const intersects = raycaster.intersectObject(plate, true);
+        if (intersects.length > 0) {
+            const intersectionPoint = intersects[0].point;
+            const closestHole = findClosestHole(intersectionPoint);
+            if (closestHole) {
+                // Lock the hole selection
+                selectedHole = closestHole;
+
+                // Highlight the selected hole in both 3D model and dropdown
+                highlightHoleInModel(selectedHole);
+                highlightHoleInDropdown(selectedHole);
+            }
+        }
+    }
+});
+
 function onMouseMove(event) {
+  if (selectedHole) {
+    // Do not allow hover highlighting if a hole is selected
+    return;
+  }
   // Get the CAD viewer (container) size and position
   const container = document.getElementById('container');
   const rect = container.getBoundingClientRect();
@@ -116,7 +147,7 @@ function onMouseMove(event) {
 
     
     raycaster.setFromCamera(mouse, camera);
-    visualizeRaycasting();  // Visualize the raycaster's direction
+    //visualizeRaycasting();  // Visualize the raycaster's direction
 
     // Check if the ray intersects with the 3D object (plate)
     let intersects = raycaster.intersectObject(plate, true);
@@ -127,17 +158,22 @@ function onMouseMove(event) {
 
         if (closestHole) {
             // Highlight corresponding hole in dropdown
-            highlightHoleInDropdown(closestHole);
+          highlightHoleInModel(closestHole);
+          highlightHoleInDropdown(closestHole);
         } else {
-            removeHighlightFromDropdown();  // Remove highlight if no hole is detected
+          removeHighlightFromModel();
+          removeHighlightFromDropdown();  // Remove highlight if no hole is detected
         }
     } else {
-        removeHighlightFromDropdown();
+      removeHighlightFromModel();
+      removeHighlightFromDropdown();
     }
   } else {
-      removeHighlightFromDropdown();
+    removeHighlightFromModel();
+    removeHighlightFromDropdown();
   }
 }
+
 
 function visualizeRaycasting() {
   // Remove existing arrow helper to avoid stacking
@@ -152,25 +188,51 @@ function visualizeRaycasting() {
 
 
 
-// Find the closest hole to the given point
 function findClosestHole(point) {
   let closestHole = null;
-  let minDistance = Infinity;
+  let minDistance = Infinity;  // Minimum "effective" distance
 
-  holes.forEach(hole => {
-      let holePosition = new THREE.Vector3(hole.position.x, hole.position.y, hole.position.z);
-      let distance = holePosition.distanceTo(point);
+  console.log("Raycast intersection point (before scaling):", point);
 
-      if (distance < 0.1 && distance < minDistance) {  // Adjust distance threshold as needed
-          closestHole = hole;
-          minDistance = distance;
+  // Scale the intersection point back to the original model size
+  const unscaledIntersectionPoint = new THREE.Vector3(
+      point.x / plate.scale.x,  // Scale up by inverse of the scaling factor
+      point.y / plate.scale.y,
+      point.z / plate.scale.z
+  );
+
+  console.log("Raycast intersection point (after scaling up):", unscaledIntersectionPoint);
+
+  // Iterate over all holes in the original unscaled space
+  holes.forEach(function (hole, index) {
+      const holePosition = new THREE.Vector3(hole.position.x, hole.position.y, hole.position.z);
+
+      // Calculate the distance between the intersection point (scaled up) and the hole center
+      const distanceToCenter = holePosition.distanceTo(unscaledIntersectionPoint);
+
+      // Calculate the hole's radius (no scaling required, since we're comparing in unscaled space)
+      const holeRadius = hole.diameter / 2;
+
+      // Effective distance: how close the point is to the edge of the hole
+      const effectiveDistance = distanceToCenter - holeRadius;
+
+      // If the effective distance is smaller than both the threshold and the minimum effective distance
+      if (effectiveDistance < 10 && Math.abs(effectiveDistance) < minDistance) {  // Point is within the hole's radius
+          closestHole = hole;  // Update the closest hole
+          minDistance = Math.abs(effectiveDistance);  // Update the minimum distance
+
+          console.log(`Hole #${index + 1} is now the closest with effective distance: ${effectiveDistance}`);
       }
   });
 
+  console.log("Final closest hole:", closestHole);
   return closestHole;
 }
 
-// Highlight the corresponding hole in the dropdown when hovered over
+
+
+
+
 function highlightHoleInDropdown(hole) {
   const holeDataContainer = document.getElementById('hole-data');
   const dropdownSections = holeDataContainer.getElementsByClassName('dropdown-section');
@@ -184,30 +246,53 @@ function highlightHoleInDropdown(hole) {
       Array.from(holeItems).forEach((item) => {
           if (item.textContent.includes(`(${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})`)) {
               item.style.backgroundColor = 'yellow';  // Highlight the corresponding hole
-              // Add an edit button next to the highlighted hole
-              const editButton = document.createElement('button');
-              editButton.textContent = 'Edit Diameter';
-              editButton.onclick = () => editHoleDiameter(hole);
-              item.appendChild(editButton);
           }
       });
   });
 }
 
-// Remove the highlight from all dropdown entries
 function removeHighlightFromDropdown() {
   const holeDataContainer = document.getElementById('hole-data');
   const highlightedItems = holeDataContainer.querySelectorAll('li[style*="background-color"]');
 
-  // Remove the background color and edit button from all highlighted items
+  // Remove the background color from all highlighted items
   Array.from(highlightedItems).forEach(item => {
       item.style.backgroundColor = '';
-      const editButton = item.querySelector('button');
-      if (editButton) {
-          editButton.remove();
-      }
   });
 }
+let highlightedHoleMesh = null;
+
+function highlightHoleInModel(hole) {
+    // Remove previous highlight if it exists
+    if (highlightedHoleMesh) {
+        scene.remove(highlightedHoleMesh);
+    }
+
+    // Create a small sphere to highlight the hole
+    const geometry = new THREE.SphereGeometry(0.2, 16, 16);  // Adjust size if necessary
+    const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    highlightedHoleMesh = new THREE.Mesh(geometry, material);
+
+    // Set the position to the hole's position, but account for the scaling of the model
+    highlightedHoleMesh.position.set(
+        hole.position.x * plate.scale.x,  // Scale the x-coordinate
+        hole.position.y * plate.scale.y,  // Scale the y-coordinate
+        hole.position.z * plate.scale.z   // Scale the z-coordinate
+    );
+
+    // Add the highlight to the scene
+    scene.add(highlightedHoleMesh);
+}
+
+function removeHighlightFromModel() {
+    // Remove the highlighted mesh if it exists
+    if (highlightedHoleMesh) {
+        scene.remove(highlightedHoleMesh);
+        highlightedHoleMesh = null;
+    }
+}
+
+
 
 // Function to edit the hole's diameter (triggered by clicking the edit button)
 function editHoleDiameter(hole) {
@@ -294,6 +379,23 @@ function processHoleData(holes) {
     });
   }
 }
+
+
+function visualizeHolePositions() {
+  holes.forEach(hole => {
+      const geometry = new THREE.SphereGeometry(0.5, 16, 16);  // Adjust size if necessary
+      const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });  // Green color for the hole markers
+      const sphere = new THREE.Mesh(geometry, material);
+      
+      sphere.position.set(
+          hole.position.x * plate.scale.x,
+          hole.position.y * plate.scale.y,
+          hole.position.z * plate.scale.z
+      );
+      scene.add(sphere);
+  });
+}
+
 
 
 
