@@ -102,27 +102,22 @@ function uploadAndLoadFile(file) {
 }
 
 
-let selectedHole = null;
+let selectedHole = null; // Keeps track of the currently locked/selected hole
+let highlightedHoleMesh = null;
+let lockedDropdownItem = null;  // Track the locked dropdown item
 
 document.addEventListener('click', (event) => {
-    if (plate) {
-        
-        // Call this function once the model is loaded
-        //visualizeHolePositions();
-        const intersects = raycaster.intersectObject(plate, true);
-        if (intersects.length > 0) {
-            const intersectionPoint = intersects[0].point;
-            const closestHole = findClosestHole(intersectionPoint);
-            if (closestHole) {
-                // Lock the hole selection
-                selectedHole = closestHole;
-
-                // Highlight the selected hole in both 3D model and dropdown
-                highlightHoleInModel(selectedHole);
-                highlightHoleInDropdown(selectedHole);
-            }
-        }
-    }
+  if (plate) {
+      const intersects = raycaster.intersectObject(plate, true);
+      if (intersects.length > 0) {
+          const intersectionPoint = intersects[0].point;
+          const closestHole = findClosestHole(intersectionPoint);
+          if (closestHole) {
+              // Toggle locking/unlocking of the hole
+              toggleHoleLock(closestHole);
+          }
+      }
+  }
 });
 
 function onMouseMove(event) {
@@ -233,65 +228,83 @@ function findClosestHole(point) {
 
 
 
+// Function to highlight the corresponding hole in the dropdown
 function highlightHoleInDropdown(hole) {
-  const holeDataContainer = document.getElementById('hole-data');
-  const dropdownSections = holeDataContainer.getElementsByClassName('dropdown-section');
+    const holeDataContainer = document.getElementById('hole-data');
+    const dropdownSections = holeDataContainer.getElementsByClassName('dropdown-section');
 
-  // Remove existing highlights
-  removeHighlightFromDropdown();
+    // Remove existing highlights
+    removeHighlightFromDropdown();
 
-  // Loop through dropdown sections and highlight the matching hole
-  Array.from(dropdownSections).forEach((section) => {
-      const holeItems = section.getElementsByTagName('li');
-      Array.from(holeItems).forEach((item) => {
-          if (item.textContent.includes(`(${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})`)) {
-              item.style.backgroundColor = 'yellow';  // Highlight the corresponding hole
-          }
-      });
-  });
+    // Loop through dropdown sections and highlight the matching hole
+    Array.from(dropdownSections).forEach((section) => {
+        const holeItems = section.getElementsByTagName('li');
+        Array.from(holeItems).forEach((item) => {
+            if (item.textContent.includes(`(${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})`)) {
+                item.style.backgroundColor = 'yellow';  // Highlight the corresponding hole
+                lockedDropdownItem = item;  // Lock this item
+            }
+        });
+    });
 }
 
+// Function to remove the highlight from the dropdown
 function removeHighlightFromDropdown() {
-  const holeDataContainer = document.getElementById('hole-data');
-  const highlightedItems = holeDataContainer.querySelectorAll('li[style*="background-color"]');
+    const holeDataContainer = document.getElementById('hole-data');
+    const highlightedItems = holeDataContainer.querySelectorAll('li[style*="background-color"]');
 
-  // Remove the background color from all highlighted items
-  Array.from(highlightedItems).forEach(item => {
-      item.style.backgroundColor = '';
-  });
+    // Remove the background color from all highlighted items
+    Array.from(highlightedItems).forEach(item => {
+        item.style.backgroundColor = '';
+    });
 }
-let highlightedHoleMesh = null;
 
+// Function to highlight the hole in the 3D model
 function highlightHoleInModel(hole) {
-    // Remove previous highlight if it exists
-    if (highlightedHoleMesh) {
-        scene.remove(highlightedHoleMesh);
-    }
+  // Remove previous highlight if it exists
+  if (highlightedHoleMesh) {
+      scene.remove(highlightedHoleMesh);
+  }
 
-    // Create a small sphere to highlight the hole
-    const geometry = new THREE.SphereGeometry(0.2, 16, 16);  // Adjust size if necessary
-    const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-    highlightedHoleMesh = new THREE.Mesh(geometry, material);
+  // Create a small sphere to highlight the hole
+  const geometry = new THREE.SphereGeometry(0.2, 16, 16);  // Adjust size if necessary
+  const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+  highlightedHoleMesh = new THREE.Mesh(geometry, material);
 
-    // Set the position to the hole's position, but account for the scaling of the model
-    highlightedHoleMesh.position.set(
-        hole.position.x * plate.scale.x,  // Scale the x-coordinate
-        hole.position.y * plate.scale.y,  // Scale the y-coordinate
-        hole.position.z * plate.scale.z   // Scale the z-coordinate
-    );
+  // Set the position to the hole's position, but account for the scaling of the model
+  highlightedHoleMesh.position.set(
+      hole.position.x * plate.scale.x,  // Scale the x-coordinate
+      hole.position.y * plate.scale.y,  // Scale the y-coordinate
+      hole.position.z * plate.scale.z   // Scale the z-coordinate
+  );
 
-    // Add the highlight to the scene
-    scene.add(highlightedHoleMesh);
+  // Add the highlight to the scene
+  scene.add(highlightedHoleMesh);
 }
 
+// Function to remove the highlight from the model
 function removeHighlightFromModel() {
-    // Remove the highlighted mesh if it exists
-    if (highlightedHoleMesh) {
-        scene.remove(highlightedHoleMesh);
-        highlightedHoleMesh = null;
-    }
+  // Remove the highlighted mesh if it exists
+  if (highlightedHoleMesh) {
+      scene.remove(highlightedHoleMesh);
+      highlightedHoleMesh = null;
+  }
 }
 
+// Function to toggle the lock when clicking a hole
+function toggleHoleLock(hole) {
+  if (selectedHole === hole) {
+      // Unlock the hole if it was already selected
+      selectedHole = null;
+      removeHighlightFromModel();
+      removeHighlightFromDropdown();  // Remove highlight from the dropdown
+  } else {
+      // Lock the new hole
+      selectedHole = hole;
+      highlightHoleInModel(hole);
+      highlightHoleInDropdown(hole);  // Highlight in the dropdown as well
+  }
+}
 
 
 // Function to edit the hole's diameter (triggered by clicking the edit button)
