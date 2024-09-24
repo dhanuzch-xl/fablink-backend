@@ -1,7 +1,8 @@
-let scene, camera, renderer, raycaster, tooltip, controls;
+let scene, camera, renderer, tooltip, controls;
 let mouse = new THREE.Vector2();
 let plate;
 let holes = [];
+let raycaster = new THREE.Raycaster();
 
 function init() {
   const container = document.getElementById('container');
@@ -39,6 +40,9 @@ function init() {
   const axesHelper = new THREE.AxesHelper(10);
   scene.add(axesHelper);
 
+  // Make sure the tooltip is hidden initially
+  hideTooltip();
+
   // File input handler
   const fileInput = document.getElementById('file-input');
   fileInput.addEventListener('change', function (event) {
@@ -49,7 +53,6 @@ function init() {
   });
 
   // Raycaster for mouse interactions
-  raycaster = new THREE.Raycaster();
   document.addEventListener('mousemove', onMouseMove, false);
 
   // Handle window resize
@@ -75,7 +78,7 @@ function uploadAndLoadFile(file) {
   })
   .then(data => {
       console.log('STL URL:', data.stlUrl);
-      console.log('Holes Data:', data.holes);  // Log the holes data
+      // console.log('Holes Data:', data.holes);  // Log the holes data
 
       // Load the STL model
       const loader = new THREE.STLLoader();
@@ -96,53 +99,73 @@ function uploadAndLoadFile(file) {
 }
 
 function onMouseMove(event) {
+  // Convert mouse position to normalized device coordinates (-1 to +1) for raycasting
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-  raycaster.setFromCamera(mouse, camera);
-  
-  // Check if 'plate' is defined and is a mesh object
-  if (!plate || !plate.isMesh) {
-    return;  // Prevent further execution if 'plate' is not ready
-  }
+  // Perform raycasting only if the plate is defined
+  if (plate) {
+      raycaster.setFromCamera(mouse, camera);
 
-  const intersects = raycaster.intersectObject(plate);
-  if (intersects.length > 0) {
-    const hole = findNearestHole(intersects[0].point);
-    if (hole) {
-      tooltip.style.display = 'block';
-      tooltip.style.left = `${event.clientX + 5}px`;
-      tooltip.style.top = `${event.clientY + 5}px`;
-      tooltip.innerHTML = `
-        Diameter: ${hole.diameter} mm<br>
-        Coordinates: (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})
-      `;
-    } else {
-      tooltip.style.display = 'none';
-    }
+      // Check if the ray intersects with the 3D object (plate)
+      let intersects = raycaster.intersectObject(plate, true);
+
+      if (intersects.length > 0) {
+          // Find the nearest hole to the intersection point
+          let closestHole = findClosestHole(intersects[0].point);
+
+          if (closestHole) {
+              // Display tooltip with hole data
+              showTooltip(event, closestHole);
+          } else {
+              hideTooltip();
+          }
+      } else {
+          hideTooltip();
+      }
   } else {
-    tooltip.style.display = 'none';
+      hideTooltip(); // Ensure the tooltip is hidden if the plate isn't ready
   }
 }
 
-function findNearestHole(point) {
-  let minDist = Infinity;
-  let nearestHole = null;
+
+// Find the closest hole to the given point
+function findClosestHole(point) {
+  let closestHole = null;
+  let minDistance = Infinity;
 
   holes.forEach(hole => {
-    const dist = Math.sqrt(
-      Math.pow(point.x - hole.position.x, 2) +
-      Math.pow(point.y - hole.position.y, 2) +
-      Math.pow(point.z - hole.position.z, 2)
-    );
-    if (dist < minDist) {
-      minDist = dist;
-      nearestHole = hole;
-    }
+      let holePosition = new THREE.Vector3(hole.position.x, hole.position.y, hole.position.z);
+      let distance = holePosition.distanceTo(point);
+
+      if (distance < 0.1 && distance < minDistance) {  // Adjust distance threshold as needed
+          closestHole = hole;
+          minDistance = distance;
+      }
   });
 
-  return (minDist < 1) ? nearestHole : null;
+  return closestHole;
 }
+
+// Show the tooltip with hole data
+function showTooltip(event, hole) {
+  const x = event.clientX;
+  const y = event.clientY;
+
+  tooltip.style.left = `${x + 10}px`;  // Position the tooltip near the mouse
+  tooltip.style.top = `${y + 10}px`;
+  tooltip.textContent = `Hole Diameter: ${hole.diameter.toFixed(2)} mm
+                         Position: (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})
+                         Depth: ${hole.depth.toFixed(2)} mm`;
+  tooltip.style.display = 'block';
+}
+
+// Hide the tooltip when the mouse is not near a hole
+function hideTooltip() {
+  tooltip.style.display = 'none';
+}
+
+
 
 function changeHoleSize(newSize) {
   // Send API request to backend to resize holes
@@ -169,34 +192,40 @@ function onWindowResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Helper function to categorize and display hole data
 function processHoleData(holes) {
-  const categorizedHoles = {};
+  console.log("Processing hole data: ", holes);  // Debugging log
+  const holeDataContainer = document.getElementById('hole-data');
+  if (!holeDataContainer) {
+      console.error("Hole data container not found!");
+      return;
+  }
 
-  // Categorize holes by diameter
+  holeDataContainer.innerHTML = '';  // Clear existing data
+
+  // Log hole data insertion
+  console.log("Hole data container found, inserting data...");
+
+  const categorizedHoles = {};
   holes.forEach(hole => {
-      const diameter = Math.round(hole.diameter);  // Round the diameter for easier categorization
+      const diameter = Math.round(hole.diameter);
       if (!categorizedHoles[diameter]) {
           categorizedHoles[diameter] = [];
       }
       categorizedHoles[diameter].push(hole);
   });
 
-  // Display hole data in the UI
-  displayHoleData(categorizedHoles);
-}
-
-// Helper function to display hole data on the webpage
-function displayHoleData(categorizedHoles) {
-  const holeDataContainer = document.getElementById('hole-data');
-  holeDataContainer.innerHTML = '';  // Clear existing data
-
   for (const diameter in categorizedHoles) {
       const holeGroup = categorizedHoles[diameter];
 
-      // Create a section for each diameter
-      const diameterSection = document.createElement('div');
-      diameterSection.innerHTML = `<h3>Holes with Diameter: ${diameter} mm</h3>`;
+      const dropdownSection = document.createElement('div');
+      dropdownSection.className = 'dropdown-section';
+
+      const dropdownHeader = document.createElement('div');
+      dropdownHeader.className = 'dropdown-header';
+      dropdownHeader.textContent = `Holes with Diameter: ${diameter} mm`;
+
+      const dropdownContent = document.createElement('div');
+      dropdownContent.className = 'dropdown-content';
 
       const holeList = document.createElement('ul');
       holeGroup.forEach(hole => {
@@ -205,9 +234,68 @@ function displayHoleData(categorizedHoles) {
           holeList.appendChild(holeItem);
       });
 
-      diameterSection.appendChild(holeList);
-      holeDataContainer.appendChild(diameterSection);
+      dropdownContent.appendChild(holeList);
+      dropdownSection.appendChild(dropdownHeader);
+      dropdownSection.appendChild(dropdownContent);
+      holeDataContainer.appendChild(dropdownSection);
+
+      // Log each section as it gets appended
+      console.log("Appended dropdown section for diameter:", diameter);
   }
+}
+
+
+
+function displayHoleData(categorizedHoles) {
+  const holeDataContainer = document.getElementById('hole-data');
+  if (!holeDataContainer) {
+      console.error("Hole data container not found!");
+      return;
+  }
+
+  holeDataContainer.innerHTML = '';  // Clear existing data
+
+  for (const diameter in categorizedHoles) {
+      const holeGroup = categorizedHoles[diameter];
+
+      // Create a dropdown section for each diameter
+      const dropdownSection = document.createElement('div');
+      dropdownSection.className = 'dropdown-section';
+
+      const dropdownHeader = document.createElement('div');
+      dropdownHeader.className = 'dropdown-header';
+      dropdownHeader.textContent = `Holes with Diameter: ${diameter} mm`;
+
+      const dropdownContent = document.createElement('div');
+      dropdownContent.className = 'dropdown-content';
+
+      const holeList = document.createElement('ul');
+      holeGroup.forEach((hole, index) => {
+          const holeItem = document.createElement('li');
+          holeItem.innerHTML = `
+              Position: (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)}), 
+              Depth: ${hole.depth.toFixed(2)} mm 
+              <button onclick="editHoleDiameter(${diameter}, ${index})">Edit Diameter</button>
+          `;
+          holeList.appendChild(holeItem);
+      });
+
+      dropdownContent.appendChild(holeList);
+      dropdownSection.appendChild(dropdownHeader);
+      dropdownSection.appendChild(dropdownContent);
+      holeDataContainer.appendChild(dropdownSection);
+
+      // Add click event to toggle dropdown visibility
+      dropdownHeader.addEventListener('click', () => {
+          dropdownContent.style.display = dropdownContent.style.display === 'none' ? 'block' : 'none';
+      });
+  }
+}
+
+// Function to handle diameter editing (for future implementation)
+function editHoleDiameter(diameter, index) {
+  console.log(`Editing hole with diameter ${diameter} mm, index: ${index}`);
+  // Placeholder for future diameter editing logic
 }
 
 
