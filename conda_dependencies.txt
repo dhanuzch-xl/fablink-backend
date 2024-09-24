@@ -1,0 +1,5 @@
+conda install conda-forge::ezdxf
+conda install conda-forge::pythonocc-core
+conda install werkzeug
+conda install -c conda-forge flask-cors
+conda install flask

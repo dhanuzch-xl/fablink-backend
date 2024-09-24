@@ -1,6 +1,6 @@
 import os
 import json
-from flask import Flask, send_file, jsonify, request
+from flask import Flask, send_file, jsonify, request, send_from_directory, render_template
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from OCC.Extend.DataExchange import read_step_file_with_names_colors, write_stl_file, write_step_file
@@ -15,14 +15,33 @@ from OCC.Core.Bnd import Bnd_Box
 from OCC.Core.BRepBndLib import brepbndlib_Add
 from OCC.Extend.TopologyUtils import TopologyExplorer
 from flask_cors import CORS
+from OCC.Core.TopoDS import TopoDS_Face
+from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+from OCC.Core.GeomAbs import GeomAbs_Cylinder
+from OCC.Core.BRepBndLib import brepbndlib_Add
+from OCC.Core.Bnd import Bnd_Box
+from OCC.Extend.TopologyUtils import TopologyExplorer
 
-app = Flask(__name__, static_folder='output', static_url_path='/output')
-CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins
+# app = Flask(__name__, static_folder='output', static_url_path='/output')
+# CORS(app, resources={r"/*": {"origins": "*"}})
+app = Flask(__name__, static_folder='static')
+# Route to serve the index.html file
+@app.route('/')
+def index():
+    return send_from_directory('static', 'index.html')
 
+# Route to serve static files (CSS, JS)
+@app.route('/static/<path:path>')
+def send_static(path):
+    return send_from_directory('static', path)
 # Path to the models and output directory
 MODEL_DIR = os.path.join(os.getcwd(), 'models')
 OUTPUT_DIR = os.path.join(os.getcwd(), 'output')
 ALLOWED_EXTENSIONS = {'stl', 'step', 'stp'}
+
+@app.route('/output/<path:filename>')
+def serve_output_file(filename):
+    return send_from_directory(OUTPUT_DIR, filename)
 
 # Helper function to check file extensions
 def allowed_file(filename):
@@ -157,6 +176,47 @@ def modify_hole_size(shape, new_size):
     modified_shape = BRepAlgoAPI_Cut(shape, new_hole).Shape()
 
     return modified_shape
+
+# Function to recognize face geometry and extract hole properties
+def recognize_face(a_face):
+    if not isinstance(a_face, TopoDS_Face):
+        return None
+
+    surf = BRepAdaptor_Surface(a_face, True)
+    surf_type = surf.GetType()
+
+    if surf_type == GeomAbs_Cylinder:
+        gp_cyl = surf.Cylinder()
+        location = gp_cyl.Location()
+        axis = gp_cyl.Axis().Direction()
+        diameter = gp_cyl.Radius() * 2
+
+        # Calculate the bounding box to get the cylinder's height
+        bbox = Bnd_Box()
+        brepbndlib_Add(a_face, bbox)
+        xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
+        height = zmax - zmin
+
+        return {
+            "position": {"x": location.X(), "y": location.Y(), "z": location.Z()},
+            "diameter": diameter,
+            "depth": height,  # Depth is now computed as height
+            "axis": {"x": axis.X(), "y": axis.Y(), "z": axis.Z()}
+        }
+    return None
+
+# Function to recognize and extract all hole faces in batch mode
+def recognize_hole_faces(step_file):
+    big_shp_dict = read_step_file_with_names_colors(step_file)
+    shapes = big_shp_dict.keys()
+
+    holes = []
+    for shape in shapes:
+        for face in TopologyExplorer(shape).faces():
+            hole_data = recognize_face(face)
+            if hole_data:
+                holes.append(hole_data)
+    return holes
 
 if __name__ == '__main__':
     if not os.path.exists(MODEL_DIR):

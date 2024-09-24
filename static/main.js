@@ -88,6 +88,9 @@ function uploadAndLoadFile(file) {
 
       // Store the holes data for further use (e.g., displaying tooltips)
       holes = data.holes;
+      
+      // Process and display the holes in the UI categorized by diameter
+      processHoleData(data.holes);
   })
   .catch(error => console.error('Error loading STL:', error));
 }
@@ -165,6 +168,48 @@ function onWindowResize() {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
+
+// Helper function to categorize and display hole data
+function processHoleData(holes) {
+  const categorizedHoles = {};
+
+  // Categorize holes by diameter
+  holes.forEach(hole => {
+      const diameter = Math.round(hole.diameter);  // Round the diameter for easier categorization
+      if (!categorizedHoles[diameter]) {
+          categorizedHoles[diameter] = [];
+      }
+      categorizedHoles[diameter].push(hole);
+  });
+
+  // Display hole data in the UI
+  displayHoleData(categorizedHoles);
+}
+
+// Helper function to display hole data on the webpage
+function displayHoleData(categorizedHoles) {
+  const holeDataContainer = document.getElementById('hole-data');
+  holeDataContainer.innerHTML = '';  // Clear existing data
+
+  for (const diameter in categorizedHoles) {
+      const holeGroup = categorizedHoles[diameter];
+
+      // Create a section for each diameter
+      const diameterSection = document.createElement('div');
+      diameterSection.innerHTML = `<h3>Holes with Diameter: ${diameter} mm</h3>`;
+
+      const holeList = document.createElement('ul');
+      holeGroup.forEach(hole => {
+          const holeItem = document.createElement('li');
+          holeItem.textContent = `Position: (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)}), Depth: ${hole.depth.toFixed(2)} mm`;
+          holeList.appendChild(holeItem);
+      });
+
+      diameterSection.appendChild(holeList);
+      holeDataContainer.appendChild(diameterSection);
+  }
+}
+
 
 function animate() {
   requestAnimationFrame(animate);
