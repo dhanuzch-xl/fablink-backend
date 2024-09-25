@@ -51,39 +51,6 @@ def serve_output_file(filename):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Function to recognize face geometry and extract hole properties
-def recognize_face(a_face):
-    if not isinstance(a_face, TopoDS_Face):
-        return None
-
-    surf = BRepAdaptor_Surface(a_face, True)
-    surf_type = surf.GetType()
-
-    if surf_type == GeomAbs_Cylinder:
-        gp_cyl = surf.Cylinder()
-        location = gp_cyl.Location()
-        axis = gp_cyl.Axis().Direction()
-        diameter = gp_cyl.Radius() * 2
-
-        return {
-            "position": {"x": location.X(), "y": location.Y(), "z": location.Z()},
-            "diameter": diameter,
-            "axis": {"x": axis.X(), "y": axis.Y(), "z": axis.Z()}
-        }
-    return None
-
-# Function to recognize and extract all hole faces in batch mode
-def recognize_hole_faces(step_file):
-    big_shp_dict = read_step_file_with_names_colors(step_file)
-    shapes = big_shp_dict.keys()
-
-    holes = []
-    for shape in shapes:
-        for face in TopologyExplorer(shape).faces():
-            hole_data = recognize_face(face)
-            if hole_data:
-                holes.append(hole_data)
-    return holes
 
 # Route to upload a file (STEP or STL) and load both STL and holes data
 from OCC.Extend.DataExchange import read_step_file_with_names_colors
@@ -185,57 +152,110 @@ def change_hole_size():
         "modified_stl_file": f"/output/{os.path.basename(modified_stl_path)}"
     }), 200
 
-
+from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
 
 def modify_hole_size(shape, new_size, hole_data):
     # Use the locked/selected hole data directly from the request
     hole_position = hole_data['position']  # Extract position
+    hole_axis = hole_data['axis']  # Extract axis
     hole_depth = hole_data['depth']  # Extract depth
 
-    # Create a new cylinder with the updated size
+    # Create a new cylinder with the updated size and correct axis
     new_hole_radius = new_size / 2.0
-    new_hole = BRepPrimAPI_MakeCylinder(new_hole_radius, hole_depth).Shape()
+    hole_location = gp_Pnt(hole_position['x'], hole_position['y'], hole_position['z'])  # Use the hole's position
+    hole_axis_direction = gp_Dir(hole_axis['x'], hole_axis['y'], hole_axis['z'])  # Use the hole's axis
 
-    # Position the new hole at the same location as the original
-    transformation = gp_Trsf()
-    translation_vector = gp_Vec(hole_position['x'], hole_position['y'], hole_position['z'])  # Corrected this part
-    transformation.SetTranslation(translation_vector)
-    
-    transformed_hole = BRepBuilderAPI_Transform(new_hole, transformation, True).Shape()
+    # Create a cylindrical axis (gp_Ax2) for the cutting cylinder
+    cutting_axis = gp_Ax2(hole_location, hole_axis_direction)
 
+    # Create the cylinder aligned with the hole's axis
+    new_hole = BRepPrimAPI_MakeCylinder(cutting_axis, new_hole_radius, hole_depth).Shape()
+
+    # No need for transformation if the cylinder is already aligned
     # Perform a boolean cut to replace the old hole with the new one
-    modified_shape = BRepAlgoAPI_Cut(shape, transformed_hole).Shape()
+    modified_shape = BRepAlgoAPI_Cut(shape, new_hole).Shape()
 
     return modified_shape
 
 
+# def modify_hole_size(shape, new_size, hole_data):
+#     # Use the locked/selected hole data directly from the request
+#     hole_position = hole_data['position']  # Extract position
+#     hole_depth = hole_data['depth']  # Extract depth
+
+#     # Create a new cylinder with the updated size
+#     new_hole_radius = new_size / 2.0
+#     new_hole = BRepPrimAPI_MakeCylinder(new_hole_radius, hole_depth).Shape()
+
+#     # Position the new hole at the same location as the original
+#     transformation = gp_Trsf()
+#     translation_vector = gp_Vec(hole_position['x'], hole_position['y'], hole_position['z'])  # Corrected this part
+#     transformation.SetTranslation(translation_vector)
+    
+#     transformed_hole = BRepBuilderAPI_Transform(new_hole, transformation, True).Shape()
+
+#     # Perform a boolean cut to replace the old hole with the new one
+#     modified_shape = BRepAlgoAPI_Cut(shape, transformed_hole).Shape()
+
+#     return modified_shape
+
+
 # Function to recognize face geometry and extract hole properties
+from OCC.Core.TopExp import TopExp_Explorer
+from OCC.Core.TopAbs import TopAbs_EDGE
+from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
+from OCC.Core.GeomAbs import GeomAbs_Circle
+from OCC.Core.Bnd import Bnd_Box
+from OCC.Core.BRepBndLib import brepbndlib_Add
+
+from OCC.Core.TopExp import TopExp_Explorer
+from OCC.Core.TopAbs import TopAbs_EDGE
+from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
+from OCC.Core.GeomAbs import GeomAbs_Circle
+from OCC.Core.Bnd import Bnd_Box
+from OCC.Core.BRepBndLib import brepbndlib_Add
+
+from OCC.Core.TopExp import TopExp_Explorer
+from OCC.Core.TopAbs import TopAbs_EDGE
+from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
+from OCC.Core.GeomAbs import GeomAbs_Circle
+from OCC.Core.Bnd import Bnd_Box
+from OCC.Core.BRepBndLib import brepbndlib_Add
+
 def recognize_face(a_face):
     if not isinstance(a_face, TopoDS_Face):
         return None
 
+    # Check if the surface is cylindrical
     surf = BRepAdaptor_Surface(a_face, True)
     surf_type = surf.GetType()
 
-    if surf_type == GeomAbs_Cylinder:
-        gp_cyl = surf.Cylinder()
-        location = gp_cyl.Location()
-        axis = gp_cyl.Axis().Direction()
-        diameter = gp_cyl.Radius() * 2
+    if surf_type != GeomAbs_Cylinder:
+        return None
 
-        # Calculate the bounding box to get the cylinder's height
-        bbox = Bnd_Box()
-        brepbndlib_Add(a_face, bbox)
-        xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
-        height = zmax - zmin
+    # Extract cylinder information
+    gp_cyl = surf.Cylinder()
+    location = gp_cyl.Location()
+    axis = gp_cyl.Axis().Direction()
+    diameter = gp_cyl.Radius() * 2
 
-        return {
-            "position": {"x": location.X(), "y": location.Y(), "z": location.Z()},
-            "diameter": diameter,
-            "depth": height,  # Depth is now computed as height
-            "axis": {"x": axis.X(), "y": axis.Y(), "z": axis.Z()}
-        }
-    return None
+    # Calculate the bounding box to get the cylinder's height
+    bbox = Bnd_Box()
+    brepbndlib_Add(a_face, bbox)
+    xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
+    height = zmax - zmin
+
+    # Additional check: ensure the height is proportional to the diameter
+    if abs(height - diameter) > 0.1 * diameter:  # Adjust tolerance as needed
+        return None
+
+    # Return the hole properties if the checks pass
+    return {
+        "position": {"x": location.X(), "y": location.Y(), "z": location.Z()},
+        "diameter": diameter,
+        "depth": height,  # Depth is now computed as height
+        "axis": {"x": axis.X(), "y": axis.Y(), "z": axis.Z()}
+    }
 
 # Function to recognize and extract all hole faces in batch mode
 def recognize_hole_faces(step_file):

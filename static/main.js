@@ -545,9 +545,6 @@ function displayHoleData(categorizedHoles) {
   }
 }
 
-
-
-
 function animate() {
   requestAnimationFrame(animate);
   controls.update();  // Update OrbitControls for smooth interactions
