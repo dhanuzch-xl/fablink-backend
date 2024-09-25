@@ -71,6 +71,19 @@
       display: none;
       z-index: 10;
     }
+
+    /* Style for file input buttons, each placed one below another */
+    .file-input-container {
+      margin-top: 20px;
+    }
+
+    .file-input-container label,
+    .file-input-container input,
+    .file-input-container button {
+      display: block;
+      margin-bottom: 10px;
+    }
+
   </style>
 </head>
 <body>
@@ -89,15 +102,17 @@
   <!-- Tooltip for mouse hover events -->
   <div id="tooltip"></div>
 
+  <!-- File input and stud input containers -->
+  <div class="file-input-container">
+    <!-- File upload input for STEP/STL File (always visible) -->
+    <label for="file-input">Browse CAD File (STEP/STL):</label>
+    <input type="file" id="file-input" accept=".stl,.step" />
 
-  
-  <!-- Slider for hole size manipulation -->
-  <label for="hole-slider">Hole Size:</label>
-  <input type="range" id="hole-slider" min="1" max="100" value="10" />
+    <!-- Hidden file input for uploading the stud file (visible only when a hole is selected) -->
+    <label for="stud-file-input" id="stud-file-label" style="display: none;">Browse Stud File:</label>
+    <input type="file" id="stud-file-input" style="display: none;" accept=".step,.stp" />
 
-  <!-- File upload input for STEP/STL File -->
-  <label for="file-input">Upload STEP/STL File:</label>
-  <input type="file" id="file-input" accept=".stl,.step" />
+  </div>
 
   <!-- Load THREE.js and other necessary scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>

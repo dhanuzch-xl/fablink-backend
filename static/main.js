@@ -57,9 +57,96 @@ function init() {
   // Handle window resize
   window.addEventListener('resize', onWindowResize, false);
 
+
+function editHoleDiameter(diameter, index) {
+  const newDiameter = prompt(`Enter new diameter for hole with current diameter ${diameter} mm:`, diameter);
+  if (newDiameter !== null && !isNaN(newDiameter)) {
+      // Update the hole's diameter locally
+      holes[index].diameter = parseFloat(newDiameter);
+
+      // Update the hole in the model in real-time
+      updateHoleInModel(index, parseFloat(newDiameter));
+
+      // Send the updated diameter and hole data to the backend
+      const stepFile = document.getElementById('file-input').files[0]?.name;  // Ensure a file is selected
+      if (!stepFile) {
+          console.error('No STEP file selected for modification.');
+          return;
+      }
+
+      fetch('/api/change_hole_size', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              newSize: parseFloat(newDiameter),
+              holeData: holes[index],  // Send the updated hole data
+              stepFile: stepFile  // Send the current step file name
+          })
+      })
+      .then(response => {
+          if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();  // Expect JSON response from the backend
+      })
+      .then(data => {
+          console.log(`Server response:`, data);
+
+          // Use the modified STL file URL to reload the model
+          const modifiedStlUrl = data.modified_stl_file;
+          reloadModifiedModel(modifiedStlUrl);  // Load the updated STL model
+      })
+      .catch(error => console.error('Error updating hole size:', error));
+  }
+}
   // Start the animation loop
   animate();
 }
+
+
+function editHoleDiameter(diameter, index) {
+    const newDiameter = prompt(`Enter new diameter for hole with current diameter ${diameter} mm:`, diameter);
+    if (newDiameter !== null && !isNaN(newDiameter)) {
+        // Update the hole's diameter locally
+        holes[index].diameter = parseFloat(newDiameter);
+  
+        // Update the hole in the model in real-time
+        updateHoleInModel(index, parseFloat(newDiameter));
+  
+        // Send the updated diameter and hole data to the backend
+        const stepFile = document.getElementById('file-input').files[0]?.name;  // Ensure a file is selected
+        if (!stepFile) {
+            console.error('No STEP file selected for modification.');
+            return;
+        }
+  
+        fetch('/api/change_hole_size', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                newSize: parseFloat(newDiameter),
+                holeData: holes[index],  // Send the updated hole data
+                stepFile: stepFile  // Send the current step file name
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();  // Expect JSON response from the backend
+        })
+        .then(data => {
+            console.log(`Server response:`, data);
+  
+            // Use the modified STL file URL to reload the model
+            const modifiedStlUrl = data.modified_stl_file;
+            reloadModifiedModel(modifiedStlUrl);  // Load the updated STL model
+        })
+        .catch(error => console.error('Error updating hole size:', error));
+    }
+  }
+
+
 
 function uploadAndLoadFile(file) {
   const formData = new FormData();
@@ -106,19 +193,26 @@ let selectedHole = null; // Keeps track of the currently locked/selected hole
 let highlightedHoleMesh = null;
 let lockedDropdownItem = null;  // Track the locked dropdown item
 
-document.addEventListener('click', (event) => {
-  if (plate) {
-      const intersects = raycaster.intersectObject(plate, true);
-      if (intersects.length > 0) {
-          const intersectionPoint = intersects[0].point;
-          const closestHole = findClosestHole(intersectionPoint);
-          if (closestHole) {
-              // Toggle locking/unlocking of the hole
-              toggleHoleLock(closestHole);
-          }
-      }
-  }
-});
+document.getElementById('container').addEventListener('click', (event) => {
+    // Perform the raycasting only if there's a plate loaded
+    if (plate) {
+        const intersects = raycaster.intersectObject(plate, true);
+        if (intersects.length > 0) {
+            const intersectionPoint = intersects[0].point;
+            const closestHole = findClosestHole(intersectionPoint);
+            if (closestHole) {
+                // Toggle locking/unlocking of the hole
+                toggleHoleLock(closestHole);
+            }
+        }
+    }
+  });
+  
+  // Prevent deselection when interacting with file input
+  document.getElementById('stud-file-input').addEventListener('click', function(event) {
+      event.stopPropagation();  // Prevent triggering the container click logic when selecting stud file
+  });
+  
 
 function onMouseMove(event) {
   if (selectedHole) {
@@ -293,61 +387,115 @@ function removeHighlightFromModel() {
 
 // Function to toggle the lock when clicking a hole
 function toggleHoleLock(hole) {
-  if (selectedHole === hole) {
-      // Unlock the hole if it was already selected
-      selectedHole = null;
-      removeHighlightFromModel();
-      removeHighlightFromDropdown();  // Remove highlight from the dropdown
-  } else {
-      // Lock the new hole
-      selectedHole = hole;
-      highlightHoleInModel(hole);
-      highlightHoleInDropdown(hole);  // Highlight in the dropdown as well
-  }
+    if (selectedHole === hole) {
+        // Unlock the hole if it was already selected
+        selectedHole = null;
+        removeHighlightFromModel();
+        removeHighlightFromDropdown();
+
+        // Hide the stud file input when no hole is selected
+        document.getElementById('stud-file-input').style.display = 'none';
+    } else {
+        selectedHole = hole;
+        highlightHoleInModel(hole);
+        highlightHoleInDropdown(hole);
+
+        // Show the stud file input when a hole is selected
+        document.getElementById('stud-file-input').style.display = 'block';
+    }
 }
 
 
-function editHoleDiameter(diameter, index) {
-  const newDiameter = prompt(`Enter new diameter for hole with current diameter ${diameter} mm:`, diameter);
-  if (newDiameter !== null && !isNaN(newDiameter)) {
-      // Update the hole's diameter locally
-      holes[index].diameter = parseFloat(newDiameter);
+// When the user selects a file for the stud
+document.getElementById('stud-file-input').addEventListener('change', function () {
+    const studFile = document.getElementById('stud-file-input').files[0]; // Get the selected stud STEP file
+    if (!studFile) {
+        alert('Please select a STEP file for the stud.');
+        return;
+    }
 
-      // Update the hole in the model in real-time
-      updateHoleInModel(index, parseFloat(newDiameter));
+    // Send the STEP file to the server for conversion
+    const formData = new FormData();
+    formData.append('file', studFile);
 
-      // Send the updated diameter and hole data to the backend
-      const stepFile = document.getElementById('file-input').files[0]?.name;  // Ensure a file is selected
-      if (!stepFile) {
-          console.error('No STEP file selected for modification.');
-          return;
-      }
+    fetch('http://127.0.0.1:5000/api/upload_stud', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'Accept': 'application/json', // No 'Content-Type', it will be set automatically.
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Error: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('STL URL for Stud:', data.stlUrl);
 
-      fetch('/api/change_hole_size', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-              newSize: parseFloat(newDiameter),
-              holeData: holes[index],  // Send the updated hole data
-              stepFile: stepFile  // Send the current step file name
-          })
-      })
-      .then(response => {
-          if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.json();  // Expect JSON response from the backend
-      })
-      .then(data => {
-          console.log(`Server response:`, data);
+        // Load the STL model of the stud
+        const loader = new THREE.STLLoader();
+        loader.load('http://127.0.0.1:5000' + data.stlUrl, function (geometry) {
+            placeStudInHole(geometry, selectedHole);  // Place the stud in the selected hole
+        });
+    })
+    .catch(error => console.error('Error uploading and loading the stud STL:', error));
+});
 
-          // Use the modified STL file URL to reload the model
-          const modifiedStlUrl = data.modified_stl_file;
-          reloadModifiedModel(modifiedStlUrl);  // Load the updated STL model
-      })
-      .catch(error => console.error('Error updating hole size:', error));
-  }
+
+function placeStudInHole(studGeometry, hole) {
+    // Create a material for the stud mesh
+    const studMesh = new THREE.Mesh(studGeometry, new THREE.MeshPhongMaterial({ color: 0xff0000 }));
+
+    // Recompute the bounding box of the stud to get its dimensions
+    studGeometry.computeBoundingBox(); // Ensure bounding box is computed
+    studGeometry.center(); // Center the geometry before scaling
+
+    // Calculate the bounding box of the stud to determine its diameter
+    const boundingBox = studGeometry.boundingBox; // Use geometry bounding box instead of fromObject
+    const studDiameter = boundingBox.max.x - boundingBox.min.x;  // Assuming the stud is cylindrical in the X direction
+
+    console.log('Detected stud diameter:', studDiameter);  // Debugging
+
+    // Get the hole diameter
+    const holeDiameter = hole.diameter;
+
+    // Calculate the scale factor to match the hole diameter, accounting for plate scaling
+    const scale = (holeDiameter / studDiameter) *  plate.scale.x; // Include plate's scale in calculation
+
+    console.log('Calculated scale:', scale);
+
+    // Apply the scale uniformly to the stud mesh, considering the plate's scale
+    studMesh.scale.set(scale, scale, scale);
+
+    // Set the scaled stud position to the selected hole's position
+    studMesh.position.set(
+        hole.position.x * plate.scale.x,
+        hole.position.y * plate.scale.y,
+        hole.position.z * plate.scale.z
+    );
+
+    // Ensure the holeAxis is a THREE.Vector3 object
+    const holeAxis = new THREE.Vector3(hole.axis.x, hole.axis.y, hole.axis.z);
+    const defaultAxis = new THREE.Vector3(0, 0, 1); // Assuming the stud is aligned along the Z-axis by default
+
+    // Normalize the axis vectors
+    holeAxis.normalize();
+    defaultAxis.normalize();
+
+    // Calculate the quaternion for rotation to align the stud with the hole's axis
+    const quaternion = new THREE.Quaternion().setFromUnitVectors(defaultAxis, holeAxis);
+    studMesh.quaternion.copy(quaternion);
+
+    // Add the scaled stud to the scene
+    scene.add(studMesh);
+
+    // Ensure the scene is rendered after adding the stud
+    renderer.render(scene, camera);
 }
+
+
 
 
 function reloadModifiedModel(stlUrl) {

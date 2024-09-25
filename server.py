@@ -4,16 +4,15 @@ from werkzeug.utils import secure_filename
 from OCC.Extend.DataExchange import read_step_file_with_names_colors, write_stl_file, write_step_file, read_step_file
 from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeCylinder
 from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
-from OCC.Core.gp import gp_Pnt
 from OCC.Extend.TopologyUtils import TopologyExplorer
 from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
 from OCC.Core.GeomAbs import GeomAbs_Cylinder
 from OCC.Core.Bnd import Bnd_Box
 from OCC.Core.BRepBndLib import brepbndlib_Add
+from OCC.Core.TopoDS import TopoDS_Face
+from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+import uuid
 
-
-# app = Flask(__name__, static_folder='output', static_url_path='/output')
-# CORS(app, resources={r"/*": {"origins": "*"}})
 app = Flask(__name__, static_folder='static')
 # Route to serve the index.html file
 @app.route('/')
@@ -33,13 +32,8 @@ ALLOWED_EXTENSIONS = {'stl', 'step', 'stp'}
 def serve_output_file(filename):
     return send_from_directory(OUTPUT_DIR, filename)
 
-# Helper function to check file extensions
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-# Route to upload a file (STEP or STL) and load both STL and holes data
-from OCC.Extend.DataExchange import read_step_file_with_names_colors
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'step', 'stp', 'stl'}
 
 @app.route('/api/upload_file', methods=['POST'])
 def upload_file():
@@ -51,12 +45,14 @@ def upload_file():
         return jsonify({'error': 'No selected file'}), 400
     
     if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(MODEL_DIR, filename)
+        # Secure and unique filename
+        original_filename = secure_filename(file.filename)
+        unique_filename = str(uuid.uuid4()) + "_" + original_filename
+        file_path = os.path.join(OUTPUT_DIR, unique_filename)
         file.save(file_path)
 
         # If it's a STEP file, convert it to STL and extract hole data
-        if filename.endswith('.step') or filename.endswith('.stp'):
+        if unique_filename.endswith('.step') or unique_filename.endswith('.stp'):
             # Read STEP file using a function that returns names, colors, and shapes
             big_shp_dict = read_step_file_with_names_colors(file_path)
             
@@ -66,7 +62,8 @@ def upload_file():
             # Extract the shape from the dictionary (keys in the dictionary are TopoDS_Shape objects)
             shape = list(big_shp_dict.keys())[0]  # Get the first shape (adjust if needed)
 
-            stl_filename = filename.rsplit('.', 1)[0] + '.stl'
+            # Generate a unique STL filename
+            stl_filename = unique_filename.rsplit('.', 1)[0] + '.stl'
             stl_path = os.path.join(OUTPUT_DIR, stl_filename)
 
             # Convert STEP to STL and save
@@ -79,8 +76,8 @@ def upload_file():
             return jsonify({'stlUrl': f'/output/{stl_filename}', 'holes': holes}), 200
 
         # If it's already an STL file, just return the STL URL (no hole data)
-        elif filename.endswith('.stl'):
-            return jsonify({'stlUrl': f'/output/{filename}', 'holes': []}), 200
+        elif unique_filename.endswith('.stl'):
+            return jsonify({'stlUrl': f'/output/{unique_filename}', 'holes': []}), 200
 
     return jsonify({'error': 'File type not allowed'}), 400
 
@@ -99,8 +96,40 @@ def convert_step_to_stl(filename):
 
     return send_file(stl_path, as_attachment=False)  # Serve the STL file
 
+@app.route('/api/upload_stud', methods=['POST'])
+def upload_and_place_stud():
+    if 'file' not in request.files:
+        app.logger.error("No stud file in request")
+        return jsonify({'error': 'No stud file provided'}), 400
 
-from OCC.Extend.DataExchange import write_stl_file
+    stud_file = request.files['file']
+    app.logger.info(f"Received file: {stud_file.filename}")
+
+    if stud_file.filename == '':
+        app.logger.error("No file selected")
+        return jsonify({'error': 'No selected file'}), 400
+
+    if stud_file and allowed_file(stud_file.filename):
+        original_filename = secure_filename(stud_file.filename)
+        unique_filename = str(uuid.uuid4()) + "_" + original_filename
+        file_path = os.path.join(OUTPUT_DIR, unique_filename)
+        stud_file.save(file_path)
+        app.logger.info(f"File saved to: {file_path}")
+
+        if unique_filename.lower().endswith(('.step', '.stp')):
+            stud_shape = read_step_file(file_path)
+            stud_stl_filename = unique_filename.rsplit('.', 1)[0] + '.stl'
+            stud_stl_path = os.path.join(OUTPUT_DIR, stud_stl_filename)
+
+            # Convert STEP to STL
+            write_stl_file(stud_shape, stud_stl_path)
+            app.logger.info(f"Converted to STL: {stud_stl_path}")
+
+            return jsonify({'stlUrl': f'/output/{stud_stl_filename}'}), 200
+
+    app.logger.error("File type not allowed")
+    return jsonify({'error': 'File type not allowed'}), 400
+
 
 @app.route('/api/change_hole_size', methods=['POST'])
 def change_hole_size():
@@ -138,7 +167,6 @@ def change_hole_size():
         "modified_stl_file": f"/output/{os.path.basename(modified_stl_path)}"
     }), 200
 
-from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
 
 def modify_hole_size(shape, new_size, hole_data):
     # Use the locked/selected hole data directly from the request

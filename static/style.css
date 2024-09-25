@@ -12,8 +12,9 @@ h2 {
 .layout {
   display: flex;
   flex-direction: row-reverse;
-  border: 1px solid blue;  /* Debugging border around flex container */
+  border: none; /* Remove debugging border */
 }
+
 /* Tooltip styling */
 #tooltip {
   position: absolute;
@@ -27,7 +28,6 @@ h2 {
 }
 
 /* Styling for the 3D viewer container */
-    /* CAD Viewer Container */
 #container {
   flex: 1;
   border: 1px solid #ddd;
@@ -41,8 +41,8 @@ h2 {
 #hole-data {
   width: 300px; /* Fixed width for hole data */
   padding: 10px;
-  border: 1px solid red;  /* Red border for debugging */
-  background-color: lightyellow;  /* Background for visibility */
+  border: none;  /* Remove debugging border */
+  background-color: #fff;  /* Cleaner background */
   overflow-y: auto;
   max-height: 600px;
 }
@@ -50,7 +50,8 @@ h2 {
 /* Dropdown styling */
 .dropdown-section {
   margin-bottom: 10px;
-  border: 1px solid red;  /* Temporary border for debugging */
+  border: 1px solid #ccc;
+  border-radius: 5px;
 }
 
 .dropdown-header {
@@ -76,9 +77,6 @@ h2 {
   border-radius: 0 0 5px 5px;
   background-color: #fafafa;
 }
-
-
-
 
 /* Add some styling for the list of holes */
 ul {
@@ -109,3 +107,29 @@ button:hover {
   background-color: #45a049;
 }
 
+/* New styles for the file upload container and buttons */
+#file-upload-container {
+  display: flex;
+  flex-direction: column;  /* Stack items vertically */
+  gap: 10px;  /* Add some space between the elements */
+  margin-top: 20px;  /* Add margin at the top for spacing */
+}
+
+/* Styling for file input */
+#file-upload-container label,
+#file-upload-container input {
+  display: block;
+  width: 100%;  /* Make buttons and inputs take the full width */
+  padding: 10px;
+  margin-bottom: 10px;  /* Add margin below each element for better spacing */
+}
+
+/* Adjust the hidden file input for the stud */
+#stud-file-input {
+  display: none;
+}
+
+/* Add some spacing for the slider */
+#hole-slider {
+  margin-bottom: 20px;  /* Add spacing below the slider */
+}
