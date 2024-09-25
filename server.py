@@ -1,30 +1,16 @@
 import os
-import json
-from flask import Flask, send_file, jsonify, request, send_from_directory, render_template
-from flask_cors import CORS
+from flask import Flask, send_file, jsonify, request, send_from_directory
 from werkzeug.utils import secure_filename
 from OCC.Extend.DataExchange import read_step_file_with_names_colors, write_stl_file, write_step_file, read_step_file
-from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
 from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeCylinder
+from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
 from OCC.Core.gp import gp_Pnt
-from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
-from OCC.Core.TopoDS import TopoDS_Face
-from OCC.Core.GeomAbs import GeomAbs_Cylinder
-from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
-from OCC.Core.Bnd import Bnd_Box
-from OCC.Core.BRepBndLib import brepbndlib_Add
 from OCC.Extend.TopologyUtils import TopologyExplorer
-from flask_cors import CORS
-from OCC.Core.TopoDS import TopoDS_Face
 from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
 from OCC.Core.GeomAbs import GeomAbs_Cylinder
-from OCC.Core.BRepBndLib import brepbndlib_Add
 from OCC.Core.Bnd import Bnd_Box
-from OCC.Extend.TopologyUtils import TopologyExplorer
+from OCC.Core.BRepBndLib import brepbndlib_Add
 
-from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
-from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
-from OCC.Core.gp import gp_Trsf,gp_Vec
 
 # app = Flask(__name__, static_folder='output', static_url_path='/output')
 # CORS(app, resources={r"/*": {"origins": "*"}})
@@ -178,49 +164,8 @@ def modify_hole_size(shape, new_size, hole_data):
     return modified_shape
 
 
-# def modify_hole_size(shape, new_size, hole_data):
-#     # Use the locked/selected hole data directly from the request
-#     hole_position = hole_data['position']  # Extract position
-#     hole_depth = hole_data['depth']  # Extract depth
-
-#     # Create a new cylinder with the updated size
-#     new_hole_radius = new_size / 2.0
-#     new_hole = BRepPrimAPI_MakeCylinder(new_hole_radius, hole_depth).Shape()
-
-#     # Position the new hole at the same location as the original
-#     transformation = gp_Trsf()
-#     translation_vector = gp_Vec(hole_position['x'], hole_position['y'], hole_position['z'])  # Corrected this part
-#     transformation.SetTranslation(translation_vector)
-    
-#     transformed_hole = BRepBuilderAPI_Transform(new_hole, transformation, True).Shape()
-
-#     # Perform a boolean cut to replace the old hole with the new one
-#     modified_shape = BRepAlgoAPI_Cut(shape, transformed_hole).Shape()
-
-#     return modified_shape
-
 
 # Function to recognize face geometry and extract hole properties
-from OCC.Core.TopExp import TopExp_Explorer
-from OCC.Core.TopAbs import TopAbs_EDGE
-from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
-from OCC.Core.GeomAbs import GeomAbs_Circle
-from OCC.Core.Bnd import Bnd_Box
-from OCC.Core.BRepBndLib import brepbndlib_Add
-
-from OCC.Core.TopExp import TopExp_Explorer
-from OCC.Core.TopAbs import TopAbs_EDGE
-from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
-from OCC.Core.GeomAbs import GeomAbs_Circle
-from OCC.Core.Bnd import Bnd_Box
-from OCC.Core.BRepBndLib import brepbndlib_Add
-
-from OCC.Core.TopExp import TopExp_Explorer
-from OCC.Core.TopAbs import TopAbs_EDGE
-from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
-from OCC.Core.GeomAbs import GeomAbs_Circle
-from OCC.Core.Bnd import Bnd_Box
-from OCC.Core.BRepBndLib import brepbndlib_Add
 
 def recognize_face(a_face):
     if not isinstance(a_face, TopoDS_Face):
