@@ -12,6 +12,7 @@ from OCC.Core.BRepBndLib import brepbndlib
 from OCC.Core.TopoDS import TopoDS_Face
 from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
 import uuid
+from find_edges import get_edges, edge_to_dict
 
 app = Flask(__name__, static_folder='static')
 # Route to serve the index.html file
@@ -71,15 +72,21 @@ def upload_file():
 
             # Extract hole data (assuming recognize_hole_faces can handle this)
             holes = recognize_hole_faces(file_path)
+            
+            # Extract edge data
+            edges = [edge_to_dict(edge) for edge in get_edges(shape)]
 
             # Return both the STL URL and hole data
-            return jsonify({'stlUrl': f'/output/{stl_filename}', 'holes': holes}), 200
+            return jsonify({'stlUrl': f'/output/{stl_filename}', 'holes': holes, 'edges': edges}), 200
+            #return jsonify({'stlUrl': f'/output/{stl_filename}', 'holes': holes}), 200
+            # Return both the STL URL, hole data, and edge data
 
         # If it's already an STL file, just return the STL URL (no hole data)
         elif unique_filename.endswith('.stl'):
             return jsonify({'stlUrl': f'/output/{unique_filename}', 'holes': []}), 200
 
     return jsonify({'error': 'File type not allowed'}), 400
+
 
 # Route to convert STEP to STL
 @app.route('/convert_step_to_stl/<filename>', methods=['GET'])

@@ -1,6 +1,7 @@
 let scene, camera, renderer, tooltip, controls;
 let mouse = new THREE.Vector2();
 let plate;
+let edges_scale;
 let holes = [];
 let raycaster = new THREE.Raycaster();
 
@@ -105,46 +106,48 @@ function editHoleDiameter(diameter, index) {
   }
 
 
+  function uploadAndLoadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+  
+    fetch('http://127.0.0.1:5000/api/upload_file', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Error: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('STL URL:', data.stlUrl);
+        // console.log('Holes Data:', data.holes);  // Log the holes data
+  
+        // Load the STL model
+        const loader = new THREE.STLLoader();
+        loader.load('http://127.0.0.1:5000' + data.stlUrl, function (geometry) {
+            const material = new THREE.MeshPhongMaterial({ color: 0x0077ff, specular: 0x111111, shininess: 200 });
+            plate = new THREE.Mesh(geometry, material);
+            plate.scale.set(0.1, 0.1, 0.1);
+            scene.add(plate);
 
-function uploadAndLoadFile(file) {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  fetch('http://127.0.0.1:5000/api/upload_file', {
-      method: 'POST',
-      body: formData
-  })
-  .then(response => {
-      if (!response.ok) {
-          throw new Error(`Error: ${response.statusText}`);
-      }
-      return response.json();
-  })
-  .then(data => {
-      console.log('STL URL:', data.stlUrl);
-      // console.log('Holes Data:', data.holes);  // Log the holes data
-
-      // Load the STL model
-      const loader = new THREE.STLLoader();
-      loader.load('http://127.0.0.1:5000' + data.stlUrl, function (geometry) {
-          const material = new THREE.MeshPhongMaterial({ color: 0x0077ff, specular: 0x111111, shininess: 200 });
-          plate = new THREE.Mesh(geometry, material);
-          plate.scale.set(0.1, 0.1, 0.1);
-          scene.add(plate);
-      });
-
-
-
-      // Store the holes data for further use (e.g., displaying tooltips)
-      holes = data.holes;
-      
-      // Process and display the holes in the UI categorized by diameter
-      processHoleData(data.holes);
-
-
-  })
-  .catch(error => console.error('Error loading STL:', error));
-}
+            // Store and process the edges data (calling the createEdgesFromBackend function)
+            if (data.edges) {
+                createEdgesFromBackend(data.edges);  // Call the function to create edges from backend data
+            }
+        });
+  
+        // Store and process the holes data
+        holes = data.holes;
+        processHoleData(data.holes);
+  
+ 
+  
+    })
+    .catch(error => console.error('Error loading STL:', error));
+  }
+  
 
 
 let selectedHole = null; // Keeps track of the currently locked/selected hole
@@ -188,11 +191,7 @@ function onMouseMove(event) {
 
   // Perform raycasting only if the plate is defined
   if (plate) {
-    const box = new THREE.Box3().setFromObject(plate);  // Create a bounding box around the plate
-    const helper = new THREE.Box3Helper(box, 0xffff00);  // Yellow bounding box
-    scene.add(helper);  // Add the helper to the scene
 
-    
     raycaster.setFromCamera(mouse, camera);
     //visualizeRaycasting();  // Visualize the raycaster's direction
 
@@ -202,7 +201,7 @@ function onMouseMove(event) {
     if (intersects.length > 0) {
         // Find the nearest hole to the intersection point
         let closestHole = findClosestHole(intersects[0].point);
-
+        
         if (closestHole) {
             // Highlight corresponding hole in dropdown
           highlightHoleInModel(closestHole);
@@ -219,8 +218,16 @@ function onMouseMove(event) {
     removeHighlightFromModel();
     removeHighlightFromDropdown();
   }
-}
 
+  // for edges
+  const intersects = raycaster.intersectObjects(edgesArray, true);
+  if (intersects.length > 0) {
+    console.log(intersects)
+    highlightEdge(intersects[0].object);  // Highlight the first intersected edge
+  } else {
+    removeHighlightFromEdge();  // Remove highlight if no edge is intersected
+  }
+}
 
 function visualizeRaycasting() {
   // Remove existing arrow helper to avoid stacking
@@ -449,9 +456,6 @@ function placeStudInHole(studGeometry, hole) {
     renderer.render(scene, camera);
 }
 
-
-
-
 function reloadModifiedModel(stlUrl) {
   // Remove the current plate from the scene, if it exists
   if (plate) {
@@ -476,10 +480,6 @@ function reloadModifiedModel(stlUrl) {
       console.error('An error occurred while loading the STL model:', error);
   });
 }
-
-
-
-
 
 function updateHoleInModel(holeIndex, newDiameter) {
   const hole = holes[holeIndex];
@@ -593,6 +593,90 @@ function visualizeHolePositions() {
   });
 }
 
+    const edgesArray = [];  // Array to store dynamically created edge objects
+    let highlightedEdge = null;  // To store the currently highlighted edge
+
+    // Function to create edge objects from backend data
+function createEdgesFromBackend(edgeData) {
+  edgeData.forEach(edge => {
+    const start = new THREE.Vector3(edge.start.x, edge.start.y, edge.start.z);
+    const end = new THREE.Vector3(edge.end.x, edge.end.y, edge.end.z);
+
+    // Apply the scale to the start and end points
+    start.multiply(plate.scale);  
+    end.multiply(plate.scale);
+
+    // Create buffer geometry for the edge
+    const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+
+    const material = new THREE.LineBasicMaterial({
+      color: 0xff0000,  // Default red color
+      depthTest: false  // Disable depth testing
+  });
+  
+  
+      
+    // Create a line (edge) object
+    const edgeLine = new THREE.LineSegments(geometry, material);
+
+    // Add the edge to the scene
+    scene.add(edgeLine);
+
+    // Log the material for debugging
+    console.log('Edge material cloned:', material);
+
+    // Store the edge in the edgesArray for raycasting
+    edgesArray.push(edgeLine);
+  });
+}
+// Function to highlight an edge in the 3D scene (using positional offset)
+function highlightEdge(edge) {
+  if (highlightedEdge) {
+    // Reset the previously highlighted edge to its default color
+    highlightedEdge.material.color.set(0xff0000);
+    highlightedEdge.material.needsUpdate = true;
+
+    // Reset the edge's position offset
+    highlightedEdge.position.set(0, 0, 0);
+  }
+
+
+  // Highlight the new edge with a color change
+  edge.material.color.set(0x000000);  // Set to black for highlighting
+  edge.material.depthTest = false;    // Ensure the line appears on top
+  edge.material.needsUpdate = true;
+
+  // Offset the position slightly to bring the edge "in front" of the plate
+  edge.position.y += 0.05;  // Small offset along the Z-axis
+  edge.geometry.needsUpdate = true;
+
+  highlightedEdge = edge;
+}
+
+// Function to remove highlight from the current edge
+function removeHighlightFromEdge() {
+  if (highlightedEdge) {
+    highlightedEdge.material.color.set(0xff0000);  // Reset to red
+    highlightedEdge.material.needsUpdate = true;
+
+    // Reset the edge's position offset
+    highlightedEdge.position.set(0, 0, 0);
+    highlightedEdge = null;
+  }
+}
+
+
+// Function to toggle the lock on an edge when clicked
+function toggleEdgeLock(edge) {
+  if (selectedEdge === edge) {
+    // Unlock the edge if it was already selected
+    selectedEdge = null;
+    removeHighlightFromEdge();
+  } else {
+    selectedEdge = edge;
+    highlightEdge(edge);
+  }
+}
 
 
 function animate() {
