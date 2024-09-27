@@ -57,48 +57,6 @@ function init() {
   // Handle window resize
   window.addEventListener('resize', onWindowResize, false);
 
-
-function editHoleDiameter(diameter, index) {
-  const newDiameter = prompt(`Enter new diameter for hole with current diameter ${diameter} mm:`, diameter);
-  if (newDiameter !== null && !isNaN(newDiameter)) {
-      // Update the hole's diameter locally
-      holes[index].diameter = parseFloat(newDiameter);
-
-      // Update the hole in the model in real-time
-      updateHoleInModel(index, parseFloat(newDiameter));
-
-      // Send the updated diameter and hole data to the backend
-      const stepFile = document.getElementById('file-input').files[0]?.name;  // Ensure a file is selected
-      if (!stepFile) {
-          console.error('No STEP file selected for modification.');
-          return;
-      }
-
-      fetch('/api/change_hole_size', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-              newSize: parseFloat(newDiameter),
-              holeData: holes[index],  // Send the updated hole data
-              stepFile: stepFile  // Send the current step file name
-          })
-      })
-      .then(response => {
-          if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.json();  // Expect JSON response from the backend
-      })
-      .then(data => {
-          console.log(`Server response:`, data);
-
-          // Use the modified STL file URL to reload the model
-          const modifiedStlUrl = data.modified_stl_file;
-          reloadModifiedModel(modifiedStlUrl);  // Load the updated STL model
-      })
-      .catch(error => console.error('Error updating hole size:', error));
-  }
-}
   // Start the animation loop
   animate();
 }
@@ -281,7 +239,6 @@ function findClosestHole(point) {
   let closestHole = null;
   let minDistance = Infinity;  // Minimum "effective" distance
 
-  console.log("Raycast intersection point (before scaling):", point);
 
   // Scale the intersection point back to the original model size
   const unscaledIntersectionPoint = new THREE.Vector3(
@@ -290,7 +247,6 @@ function findClosestHole(point) {
       point.z / plate.scale.z
   );
 
-  console.log("Raycast intersection point (after scaling up):", unscaledIntersectionPoint);
 
   // Iterate over all holes in the original unscaled space
   holes.forEach(function (hole, index) {
@@ -310,11 +266,9 @@ function findClosestHole(point) {
           closestHole = hole;  // Update the closest hole
           minDistance = Math.abs(effectiveDistance);  // Update the minimum distance
 
-          console.log(`Hole #${index + 1} is now the closest with effective distance: ${effectiveDistance}`);
       }
   });
 
-  console.log("Final closest hole:", closestHole);
   return closestHole;
 }
 
@@ -603,7 +557,6 @@ function processHoleData(holes) {
           const holeItem = document.createElement('li');
           holeItem.innerHTML = `
               Position: (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)}), 
-              Depth: ${hole.depth.toFixed(2)} mm 
               <button onclick="editHoleDiameter(${hole.diameter}, ${index})">Edit Diameter</button>
           `;
           holeList.appendChild(holeItem);
@@ -625,9 +578,6 @@ function processHoleData(holes) {
   }
 }
 
-
-
-
 function visualizeHolePositions() {
   holes.forEach(hole => {
       const geometry = new THREE.SphereGeometry(0.5, 16, 16);  // Adjust size if necessary
@@ -644,54 +594,6 @@ function visualizeHolePositions() {
 }
 
 
-
-
-function displayHoleData(categorizedHoles) {
-  const holeDataContainer = document.getElementById('hole-data');
-  if (!holeDataContainer) {
-      console.error("Hole data container not found!");
-      return;
-  }
-
-  holeDataContainer.innerHTML = '';  // Clear existing data
-
-  for (const diameter in categorizedHoles) {
-      const holeGroup = categorizedHoles[diameter];
-
-      // Create a dropdown section for each diameter
-      const dropdownSection = document.createElement('div');
-      dropdownSection.className = 'dropdown-section';
-
-      const dropdownHeader = document.createElement('div');
-      dropdownHeader.className = 'dropdown-header';
-      dropdownHeader.textContent = `Holes with Diameter: ${diameter} mm`;
-
-      const dropdownContent = document.createElement('div');
-      dropdownContent.className = 'dropdown-content';
-
-      const holeList = document.createElement('ul');
-      
-      holeGroup.forEach((hole, index) => {
-          const holeItem = document.createElement('li');
-          holeItem.innerHTML = `
-              Position: (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)}), 
-              Depth: ${hole.depth.toFixed(2)} mm 
-              <button onclick="editHoleDiameter(${diameter}, ${index})">Edit Diameter</button>
-          `;
-          holeList.appendChild(holeItem);
-      });
-
-      dropdownContent.appendChild(holeList);
-      dropdownSection.appendChild(dropdownHeader);
-      dropdownSection.appendChild(dropdownContent);
-      holeDataContainer.appendChild(dropdownSection);
-
-      // Add click event to toggle dropdown visibility
-      dropdownHeader.addEventListener('click', () => {
-          dropdownContent.style.display = dropdownContent.style.display === 'none' ? 'block' : 'none';
-      });
-  }
-}
 
 function animate() {
   requestAnimationFrame(animate);

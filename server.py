@@ -8,7 +8,7 @@ from OCC.Extend.TopologyUtils import TopologyExplorer
 from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
 from OCC.Core.GeomAbs import GeomAbs_Cylinder
 from OCC.Core.Bnd import Bnd_Box
-from OCC.Core.BRepBndLib import brepbndlib_Add
+from OCC.Core.BRepBndLib import brepbndlib
 from OCC.Core.TopoDS import TopoDS_Face
 from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
 import uuid
@@ -214,7 +214,7 @@ def recognize_face(a_face):
 
     # Calculate the bounding box to get the cylinder's height
     bbox = Bnd_Box()
-    brepbndlib_Add(a_face, bbox)
+    brepbndlib.Add(a_face, bbox)
     xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
     height = zmax - zmin
 
