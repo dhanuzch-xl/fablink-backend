@@ -181,11 +181,11 @@ function editHoleDiameter(diameter, index) {
 
 
 
-  // Prevent deselection when interacting with file input
-  document.getElementById('stud-file-input').addEventListener('click', function(event) {
-      event.stopPropagation();  // Prevent triggering the container click logic when selecting stud file
-  });
-  
+// Prevent deselection when interacting with file input
+document.getElementById('stud-file-input').addEventListener('click', function(event) {
+    event.stopPropagation();  // Prevent triggering the container click logic when selecting stud file
+});
+
 
 function onMouseMove(event) {
   if (selectedHole) {
@@ -371,15 +371,35 @@ function toggleHoleLock(hole) {
 
         // Hide the stud file input when no hole is selected
         document.getElementById('stud-file-input').style.display = 'none';
-    } else {
+        document.getElementById('edit-diameter-input').style.display = 'none';
+        document.getElementById('edit-diameter-label').style.display = 'none';
+
+    
+      } else {
         selectedHole = hole;
         highlightHoleInModel(hole);
         highlightHoleInDropdown(hole);
 
         // Show the stud file input when a hole is selected
         document.getElementById('stud-file-input').style.display = 'block';
+        document.getElementById('edit-diameter-input').style.display = 'block';
+        document.getElementById('edit-diameter-label').style.display = 'block';
     }
 }
+
+// Add event listener for Edit Diameter button
+document.getElementById('edit-diameter-input').addEventListener('click', function () {
+  if (selectedHole) {
+      const index = holes.findIndex(hole => hole === selectedHole);
+      if (index !== -1) {
+          editHoleDiameter(selectedHole.diameter, index);
+      } else {
+          console.error('Selected hole not found in the holes array.');
+      }
+  } else {
+      console.error('No hole selected.');
+  }
+});
 
 
 // When the user selects a file for the stud
@@ -571,9 +591,8 @@ function processHoleData(holes) {
       holeGroup.forEach(({ hole, index }) => {
           const holeItem = document.createElement('li');
           holeItem.innerHTML = `
-              Position: (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)}), 
-              <button onclick="editHoleDiameter(${hole.diameter}, ${index})">Edit Diameter</button>
-          `;
+          Position: (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})
+      `;
           holeList.appendChild(holeItem);
       });
 
