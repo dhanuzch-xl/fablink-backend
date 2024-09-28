@@ -4,6 +4,12 @@ let plate;
 let edges_scale;
 let holes = [];
 let raycaster = new THREE.Raycaster();
+let selectedHole = null; // Keeps track of the currently locked/selected hole
+let highlightedHoleMesh = null;
+let highlightedEdge = null; // Keeps track of the currently
+let selectedEdges = [];  // Initialize the selectedEdges array
+let lockedDropdownItem = null;  // Track the locked dropdown item
+let detectedHole = null; // Track the detected hole for selection
 
 function init() {
   const container = document.getElementById('container');
@@ -150,25 +156,31 @@ function editHoleDiameter(diameter, index) {
   
 
 
-let selectedHole = null; // Keeps track of the currently locked/selected hole
-let highlightedHoleMesh = null;
-let lockedDropdownItem = null;  // Track the locked dropdown item
 
-document.getElementById('container').addEventListener('click', (event) => {
-    // Perform the raycasting only if there's a plate loaded
-    if (plate) {
-        const intersects = raycaster.intersectObject(plate, true);
-        if (intersects.length > 0) {
-            const intersectionPoint = intersects[0].point;
-            const closestHole = findClosestHole(intersectionPoint);
-            if (closestHole) {
-                // Toggle locking/unlocking of the hole
-                toggleHoleLock(closestHole);
-            }
-        }
+  document.getElementById('container').addEventListener('click', (event) => {
+    // Only toggle hole lock if a hole is currently highlighted
+    if (highlightedHoleMesh) {
+        toggleHoleLock(detectedHole);  // Assuming `detectedHole` holds the current detected hole
+    } else if (!highlightedHoleMesh && !highlightedEdge) {
+        // If no holes or edges are highlighted, hide weld/fold options
+        hideWeldFoldOptions();
     }
-  });
+
+    // Only toggle edge lock if an edge is currently highlighted
+    if (highlightedEdge) {
+        toggleEdgeLock(highlightedEdge, event);  // Assuming `highlightedEdge` holds the current highlighted edge
+    } else if (!highlightedEdge && !highlightedHoleMesh) {
+        // If no edges or holes are highlighted, clear any selections and hide the weld/fold options
+        selectedEdges.forEach(e => removeHighlightFromEdge(e));
+        selectedEdges = [];
+        hideWeldFoldOptions();
+    }
+});
   
+
+
+
+
   // Prevent deselection when interacting with file input
   document.getElementById('stud-file-input').addEventListener('click', function(event) {
       event.stopPropagation();  // Prevent triggering the container click logic when selecting stud file
@@ -278,7 +290,7 @@ function findClosestHole(point) {
 
       }
   });
-
+  detectedHole = closestHole;
   return closestHole;
 }
 
@@ -597,7 +609,6 @@ function visualizeHolePositions() {
 }
 
 const edgesArray = [];  // Array to store dynamically created edge objects
-let highlightedEdge = null;  // To store the currently highlighted edge
 
     // Function to create edge objects from backend data
 function createEdgesFromBackend(edgeData) {
@@ -713,17 +724,70 @@ function removeHighlightFromEdge() {
 
 
 // Function to toggle the lock on an edge when clicked
-function toggleEdgeLock(edge) {
-  if (selectedEdge === edge) {
-    // Unlock the edge if it was already selected
-    selectedEdge = null;
-    removeHighlightFromEdge();
-  } else {
-    selectedEdge = edge;
-    highlightEdge(edge);
+function toggleEdgeLock(edge, event) {
+  // Check if the Control key (Ctrl) is pressed
+  const isCtrlPressed = event.ctrlKey || event.metaKey;  // 'metaKey' for Mac (Command key)
+
+  if (!isCtrlPressed) {
+      // If Ctrl is not pressed, clear all previously selected edges
+      selectedEdges.forEach(e => removeHighlightFromEdge(e));
+      selectedEdges = [];
   }
+
+  // If Ctrl is pressed or no edges are selected, continue the selection process
+  else {
+      // If selecting a third edge (when Ctrl is pressed), reset selection
+      if (selectedEdges.length >= 2) {
+          // Clear all previous selections
+          selectedEdges.forEach(e => removeHighlightFromEdge(e));
+          selectedEdges = [];
+          console.log("reset selection")
+      }
+  }  
+  if (!selectedEdges.includes(edge)) {  // Ensure the same edge is not added multiple times
+  // Add the new edge to the selection and highlight it
+      selectedEdges.push(edge);
+      highlightEdge(edge);
+  }
+      // If exactly two edges are selected, show the weld/fold options
+      if (selectedEdges.length === 2) {
+          console.log('call for options')
+          showWeldFoldOptions();
+      }
+  }
+
+
+  function showWeldFoldOptions() {
+    const weldFoldOptions = document.getElementById('weld-fold-options');
+    const weldFoldLabel = document.getElementById('weld-fold-label');
+
+    // Show the fold/weld options
+    weldFoldOptions.style.display = 'block';
+    weldFoldLabel.style.display = 'block';
+
+    // Optionally, handle further behavior based on user selection
+    document.getElementById('weld-option').addEventListener('change', function() {
+        if (this.checked) {
+            console.log('Weld option selected');
+            // Call a function or perform logic specific to welding
+        }
+    });
+
+    document.getElementById('fold-option').addEventListener('change', function() {
+        if (this.checked) {
+            console.log('Fold option selected');
+            // Call a function or perform logic specific to folding
+        }
+    });
 }
 
+// Function to hide the weld/fold options (if needed)
+function hideWeldFoldOptions() {
+    const weldFoldOptions = document.getElementById('weld-fold-options');
+    const weldFoldLabel = document.getElementById('weld-fold-label');
+    weldFoldOptions.style.display = 'none';
+    weldFoldLabel.style.display = 'none';
+}
 
 function animate() {
   requestAnimationFrame(animate);

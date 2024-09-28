@@ -1,13 +1,10 @@
 TODO:
+Need undo facility. Create list of operations and when the tile of operation is closed that should undo the change in stl file.
 have to clean imports in server.py
 f the file is already an STL file, it’s directly returned without hole extraction. Have to change it.
 Need to check for non circular holes.
-Need to check depth calculations. 
 Need to write code for welding line identification.
-Need option to select step file, run preprocessing code and displaying options to select hole and line catagory from browser  instead of hardcoding.
-Need to auto position camera based on scaling.
 scaling factor variable used to map holes and rendering should be global setting.
-Files are working with absolute addressing only.
 
 
 Suggested Next Steps:

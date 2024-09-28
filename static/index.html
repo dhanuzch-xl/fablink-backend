@@ -113,6 +113,12 @@
     <input type="file" id="stud-file-input" style="display: none;" accept=".step,.stp" />
 
   </div>
+  <!-- Hidden options for Fold and Weld (shown when two edges are selected) -->
+  <label for="weld-fold-options" id="weld-fold-label" style="display: none;">Weld/Fold Options:</label>
+  <div id="weld-fold-options" style="display: none;">
+      <input type="checkbox" id="weld-option"> Weld<br>
+      <input type="checkbox" id="fold-option"> Fold
+  </div>
 
   <!-- Load THREE.js and other necessary scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
