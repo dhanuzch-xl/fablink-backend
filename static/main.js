@@ -210,25 +210,28 @@ function onMouseMove(event) {
           removeHighlightFromModel();
           removeHighlightFromDropdown();  // Remove highlight if no hole is detected
         }
+
+        // Find the nearest edge to the intersection point
+        const closestEdge = findNearestEdge(intersects[0].point);
+        if (closestEdge) {
+        highlightEdge(closestEdge);  // Highlight the found edge
+        } else {
+          removeHighlightFromEdge();  // Remove highlight if no edge is detected
+        } 
     } else {
       removeHighlightFromModel();
       removeHighlightFromDropdown();
+      removeHighlightFromEdge();  // Remove highlight if no edge is detected
+
     }
   } else {
     removeHighlightFromModel();
     removeHighlightFromDropdown();
+    removeHighlightFromEdge();  // Remove highlight if no edge is detected
+
   }
 
-  // for edges
-  const intersects = raycaster.intersectObjects(edgesArray, true);
-  if (intersects.length > 0) {
-    console.log(intersects)
-    highlightEdge(intersects[0].object);  // Highlight the first intersected edge
-  } else {
-    removeHighlightFromEdge();  // Remove highlight if no edge is intersected
-  }
 }
-
 function visualizeRaycasting() {
   // Remove existing arrow helper to avoid stacking
   if (window.arrowHelper) {
@@ -593,8 +596,8 @@ function visualizeHolePositions() {
   });
 }
 
-    const edgesArray = [];  // Array to store dynamically created edge objects
-    let highlightedEdge = null;  // To store the currently highlighted edge
+const edgesArray = [];  // Array to store dynamically created edge objects
+let highlightedEdge = null;  // To store the currently highlighted edge
 
     // Function to create edge objects from backend data
 function createEdgesFromBackend(edgeData) {
@@ -611,8 +614,8 @@ function createEdgesFromBackend(edgeData) {
 
     const material = new THREE.LineBasicMaterial({
       color: 0xff0000,  // Default red color
-      depthTest: false  // Disable depth testing
-  });
+      //depthTest: false  // Disable depth testing
+      });
   
   
       
@@ -629,6 +632,49 @@ function createEdgesFromBackend(edgeData) {
     edgesArray.push(edgeLine);
   });
 }
+
+
+function findNearestEdge(point) {
+  let closestEdge = null;
+  let minEffectiveDistance = Infinity;  // Minimum "effective" distance
+
+  // Iterate over all edges
+  edgesArray.forEach(function (edge) {
+      // Get the start and end points of the edge
+      const start = edge.geometry.attributes.position.array.slice(0, 3); // First 3 values
+      const end = edge.geometry.attributes.position.array.slice(3, 6); // Next 3 values
+      const edgeStart = new THREE.Vector3(start[0], start[1], start[2]);
+      const edgeEnd = new THREE.Vector3(end[0], end[1], end[2]);
+
+      // Calculate the distance from the intersection point to the edge
+      const distanceToEdge = pointToLineDistance(point, edgeStart, edgeEnd);
+
+      // Check if the distance is less than 0.1
+      if (distanceToEdge < 0.1) {
+          // Update the closest edge if the distance is less than the current minimum effective distance
+          // if (distanceToEdge < minEffectiveDistance) {
+          minEffectiveDistance = distanceToEdge;
+          closestEdge = edge;  // Update the closest edge
+          // }
+      }
+  });
+
+  // Return the closest edge found, or null if no edges were within the specified distance
+  return closestEdge;
+}
+
+// Helper function to calculate the distance from a point to a line segment
+function pointToLineDistance(point, start, end) {
+  const lineVector = new THREE.Vector3().subVectors(end, start);
+  const lineLengthSquared = lineVector.lengthSq();
+  if (lineLengthSquared === 0) return point.distanceTo(start); // Start and end points are the same
+
+  const t = Math.max(0, Math.min(1, lineVector.dot(new THREE.Vector3().subVectors(point, start)) / lineLengthSquared));
+  const closestPoint = new THREE.Vector3().copy(start).add(lineVector.multiplyScalar(t));
+  return point.distanceTo(closestPoint);
+}
+
+
 // Function to highlight an edge in the 3D scene (using positional offset)
 function highlightEdge(edge) {
   if (highlightedEdge) {
