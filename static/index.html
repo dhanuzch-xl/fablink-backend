@@ -4,53 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>STEP Viewer</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <style>
-    /* Flex layout to place CAD viewer and file input side by side */
-    .layout {
-      display: flex;
-      flex-direction: row; /* CAD viewer on the left, file input on the right */
-    }
-
-    /* CAD Viewer Container */
-    #container {
-      flex: 1;
-      border: 1px solid #ddd;
-      height: 600px;
-      background-color: #f0f0f0;
-    }
-
-    /* Tooltip styling */
-    #tooltip {
-      position: absolute;
-      background-color: rgba(0, 0, 0, 0.75);
-      color: white;
-      padding: 5px;
-      border-radius: 3px;
-      font-size: 12px;
-      display: none;
-      z-index: 10;
-    }
-
-    /* Style for file input container on the right-hand side of the CAD viewer */
-    .file-input-container {
-      width: 300px;
-      padding: 10px;
-      border: 1px solid #ddd;
-      background-color: #fff;
-      margin-left: 20px; /* Space between CAD viewer and file input */
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* Styling for file input elements */
-    .file-input-container label,
-    .file-input-container input,
-    .file-input-container button {
-      display: block;
-      margin-bottom: 10px;
-    }
-  </style>
+  <link rel="stylesheet" href="/static/style.css"> <!-- Link to external CSS file -->
 </head>
 <body>
   <!-- Flex layout container for the CAD viewer and file input -->
@@ -58,7 +12,7 @@
     <!-- CAD Viewer Container -->
     <div id="container"></div>
 
-    <!-- File input and stud input containers -->
+    <!-- Sidebar containing file input and operations log -->
     <div class="file-input-container">
       <!-- File upload input for STEP/STL File (always visible) -->
       <label for="file-input">Browse CAD File (STEP/STL):</label>
@@ -78,15 +32,19 @@
         <input type="checkbox" id="weld-option"> Weld<br>
         <input type="checkbox" id="fold-option"> Fold
       </div>
+
+      <!-- Operations Log Section -->
+      <div class="operations-log-section">
+        <h2>Operations Log</h2>
+        <div id="jobs-list" class="jobs-list">
+          <!-- Jobs will be dynamically added here -->
+        </div>
+      </div>
     </div>
-
-
   </div>
 
   <!-- Tooltip for mouse hover events -->
   <div id="tooltip"></div>
-
-
 
   <!-- Load THREE.js and other necessary scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>

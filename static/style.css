@@ -8,12 +8,18 @@ h2 {
   margin-top: 0;
 }
 
-/* Flex layout container for the CAD viewer and file input */
-.viewer-wrapper {
+/* Flex layout for CAD viewer and file input on the right side */
+.layout {
   display: flex;
   flex-direction: row;
-  width: 100%;
-  justify-content: space-between;
+}
+
+/* CAD Viewer Container */
+#container {
+  flex: 1;
+  border: 1px solid #ddd;
+  height: 600px;
+  background-color: #f0f0f0;
 }
 
 /* Tooltip styling */
@@ -28,23 +34,51 @@ h2 {
   z-index: 10;
 }
 
-/* Styling for the 3D viewer container */
-#container {
-  flex: 1;
-  border: 1px solid #ddd;
-  height: 600px;
-  width: 70%;  /* Explicit width for the CAD viewer */
-  background-color: #f0f0f0;
-  overflow: hidden;  /* Contain the CAD viewer within its bounds */
-}
-
-/* Styling for file input container on the right side */
+/* Sidebar container on the right */
 .file-input-container {
   width: 300px;
   padding: 10px;
   border: 1px solid #ddd;
   background-color: #fff;
-  margin-left: 20px; /* Add some margin from the CAD viewer */
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  height: 600px;
+}
+
+/* Scrollable section for operations log */
+.operations-log-section {
+  flex: 1;
+  border-top: 1px solid #ddd;
+  margin-top: 10px;
+  padding-top: 10px;
+  overflow-y: auto;
+  background-color: #f9f9f9;
+}
+
+/* Styling for file input elements */
+.file-input-container label,
+.file-input-container input,
+.file-input-container button {
+  display: block;
+  margin-bottom: 10px;
+}
+
+/* Jobs list for displaying recorded operations */
+.jobs-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.job-entry {
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 10px;
+  background-color: #fafafa;
+}
+
+.job-entry h3 {
+  margin: 0;
+  font-size: 16px;
 }

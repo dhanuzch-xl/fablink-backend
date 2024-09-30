@@ -74,7 +74,9 @@ function editHoleDiameter(diameter, index) {
     if (newDiameter !== null && !isNaN(newDiameter)) {
         // Update the hole's diameter locally
         holes[index].diameter = parseFloat(newDiameter);
-  
+       
+       // add job to list
+        addJob('hole', holes[index], 'Hole diameter changed', newDiameter);
         // Update the hole in the model in real-time
         updateHoleInModel(index, parseFloat(newDiameter));
   
@@ -528,6 +530,10 @@ function placeStudInHole(studGeometry, hole) {
 
     // Ensure the scene is rendered after adding the stud
     renderer.render(scene, camera);
+
+    addJob('stud', hole, 'Placed stud in the selected hole');
+
+    
 }
 
 function reloadModifiedModel(stlUrl) {
@@ -848,6 +854,8 @@ function toggleEdgeLock(edge, event) {
     document.getElementById('weld-option').addEventListener('change', function() {
         if (this.checked) {
             console.log('Weld option selected');
+            addJob('weld', selectedEdges[0].geometry.attributes.position, 'Welding two edges');
+
             // Call a function or perform logic specific to welding
         }
     });
@@ -855,6 +863,7 @@ function toggleEdgeLock(edge, event) {
     document.getElementById('fold-option').addEventListener('change', function() {
         if (this.checked) {
             console.log('Fold option selected');
+            addJob('fold', selectedEdges[0].geometry.attributes.position, 'folding two edges');
             // Call a function or perform logic specific to folding
         }
     });
@@ -890,5 +899,74 @@ function animate() {
   controls.update();  // Update OrbitControls for smooth interactions
   renderer.render(scene, camera);
 }
+
+
+let jobs = [];
+
+function addJob(type, data, description, additionalInfo = null) {
+    let jobEntry;
+  
+    if (type === 'weld' || type === 'fold') {
+      // For edges (where data is the geometry position)
+      const start = new THREE.Vector3(
+        data.getX(0), // x1
+        data.getY(0), // y1
+        data.getZ(0)  // z1
+      );
+  
+      const end = new THREE.Vector3(
+        data.getX(1), // x2
+        data.getY(1), // y2
+        data.getZ(1)  // z2
+      );
+  
+      jobEntry = `Type: ${type}, Start: (${start.x.toFixed(2)}, ${start.y.toFixed(2)}, ${start.z.toFixed(2)}), ` +
+                 `End: (${end.x.toFixed(2)}, ${end.y.toFixed(2)}, ${end.z.toFixed(2)}) - ${description}`;
+    } else if (type === 'Edithole') {
+      // For hole operations (where data is the hole's position as THREE.Vector3 and additionalInfo is the diameter)
+      const position = data.position;  // Assuming data is an object that has a position property (THREE.Vector3)
+      jobEntry = `Type: ${type}, Position: (${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)}), ` +
+                 `New Diameter: ${additionalInfo}mm - ${description}`;
+    } else if (type === 'stud') {
+      // For stud placement (where data is the hole's position as THREE.Vector3)
+      const position = data.position;  // Assuming data is the hole where the stud is placed
+      jobEntry = `Type: ${type}, Stud Placed at: (${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)}) - ${description}`;
+    }
+  
+    console.log(jobEntry);  // For debugging
+  
+    // Add job to the job list (DOM manipulation)
+    const jobList = document.getElementById('jobs-list');
+    const jobItem = document.createElement('div');
+    jobItem.classList.add('job-entry');
+    jobItem.innerHTML = `<h3>${type}</h3><p>${jobEntry}</p>`;
+    jobList.appendChild(jobItem);
+  }
+  
+
+// Function to display the job in the right-side bar
+function displayJob(job) {
+    const jobList = document.getElementById('jobs-list');
+    
+    const jobEntry = document.createElement('div');
+    jobEntry.className = 'job-entry';
+    
+    const jobTitle = document.createElement('h3');
+    jobTitle.textContent = `Operation: ${job.type}`;
+    jobEntry.appendChild(jobTitle);
+    
+    const jobPosition = document.createElement('p');
+    jobPosition.textContent = `Position: (${job.position.x.toFixed(2)}, ${job.position.y.toFixed(2)}, ${job.position.z.toFixed(2)})`;
+    jobEntry.appendChild(jobPosition);
+
+    if (job.data) {
+        const jobData = document.createElement('p');
+        jobData.textContent = `Data: ${job.data}`;
+        jobEntry.appendChild(jobData);
+    }
+
+    jobList.appendChild(jobEntry);
+}
+
 
 init();
