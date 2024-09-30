@@ -146,7 +146,7 @@ function editHoleDiameter(diameter, index) {
   
         // Store and process the holes data
         holes = data.holes;
-        //processHoleData(data.holes);
+        processHoleData(data.holes);
   
  
   
@@ -217,14 +217,10 @@ function onMouseMove(event) {
         if (closestHole) {
             // Highlight corresponding hole in dropdown
           highlightHoleInModel(closestHole);
-         // highlightHoleInDropdown(closestHole);
-         // displayHoleInfo(closestHole);
-         showTooltip(event, closestHole);
+          highlightHoleInDropdown(closestHole);
         } else {
           removeHighlightFromModel();
-          //removeHighlightFromDropdown();  // Remove highlight if no hole is detected
-          //clearHoleInfo();  // Clear hole info if no hole is detected
-          hideTooltip();
+          removeHighlightFromDropdown();  // Remove highlight if no hole is detected
         }
 
         // Find the nearest edge to the intersection point
@@ -236,15 +232,15 @@ function onMouseMove(event) {
         } 
     } else {
       removeHighlightFromModel();
-      //removeHighlightFromDropdown();
+      removeHighlightFromDropdown();
       removeHighlightFromEdge();  // Remove highlight if no edge is detected
-      hideTooltip();
+
     }
   } else {
     removeHighlightFromModel();
-    //removeHighlightFromDropdown();
+    removeHighlightFromDropdown();
     removeHighlightFromEdge();  // Remove highlight if no edge is detected
-    hideTooltip();
+
   }
 
 }
@@ -300,29 +296,6 @@ function findClosestHole(point) {
 
 
 
-// Function to show the tooltip
-function showTooltip(event, hole) {
-    const tooltip = document.getElementById('tooltip');
-  
-    // Set the content of the tooltip (diameter and position)
-    tooltip.innerHTML = `
-      <strong>Hole Diameter:</strong> ${hole.diameter.toFixed(2)} mm<br>
-      <strong>Position:</strong> (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})
-    `;
-  
-    // Position the tooltip near the mouse pointer
-    tooltip.style.left = event.pageX + 15 + 'px';
-    tooltip.style.top = event.pageY + 15 + 'px';
-  
-    // Show the tooltip
-    tooltip.style.display = 'block';
-  }
-  
-  // Function to hide the tooltip
-  function hideTooltip() {
-    const tooltip = document.getElementById('tooltip');
-    tooltip.style.display = 'none';
-  }
 
 
 // Function to highlight the corresponding hole in the dropdown
@@ -638,27 +611,7 @@ function processHoleData(holes) {
       });
   }
 }
-// Function to display hole information in the hole-data container
-function displayHoleInfo(hole) {
-    const holeDataContainer = document.getElementById('hole-data');
-    
-    // Create hole info text with position and diameter
-    const holeInfo = `
-      <div class="hole-info">
-        <strong>Hole Diameter:</strong> ${hole.diameter.toFixed(2)} mm<br>
-        <strong>Position:</strong> (${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})
-      </div>
-    `;
-    
-    // Update the hole-data container with the hole information
-    holeDataContainer.innerHTML = holeInfo;
-  }
-  
-  // Function to clear hole information when no hole is hovered
-  function clearHoleInfo() {
-    const holeDataContainer = document.getElementById('hole-data');
-    holeDataContainer.innerHTML = '<h2>Hole Data</h2>';  // Reset to default header
-  }
+
 function visualizeHolePositions() {
   holes.forEach(hole => {
       const geometry = new THREE.SphereGeometry(0.5, 16, 16);  // Adjust size if necessary
