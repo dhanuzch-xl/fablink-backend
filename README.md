@@ -83,3 +83,9 @@ Suggested Next Steps:
     - Hole data is displayed in the UI, categorized by diameter, making it easy to view and interact with holes of different sizes.
    
 These features combine to create an interactive, 3D model visualization and editing system, primarily focused on manipulating hole geometries within STL models and supporting dynamic model updates.
+
+
+addJob('weld', selectedEdges[0].geometry.attributes.position, 'Welding two edges');
+addJob('hole', selectedHole, 'Changed hole diameter'); // Assuming selectedHole has a position property
+addJob('stud', selectedHole, 'Placed stud in the selected hole');
+addJob('hole', selectedHole, 'Hole diameter changed', newDiameter);
