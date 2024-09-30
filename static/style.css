@@ -8,11 +8,12 @@ h2 {
   margin-top: 0;
 }
 
-/* Flex layout container for the CAD viewer and hole data */
-.layout {
+/* Flex layout container for the CAD viewer and file input */
+.viewer-wrapper {
   display: flex;
-  flex-direction: row-reverse;
-  border: none; /* Remove debugging border */
+  flex-direction: row;
+  width: 100%;
+  justify-content: space-between;
 }
 
 /* Tooltip styling */
@@ -37,99 +38,13 @@ h2 {
   overflow: hidden;  /* Contain the CAD viewer within its bounds */
 }
 
-/* Hole data section on the left */
-#hole-data {
-  width: 300px; /* Fixed width for hole data */
+/* Styling for file input container on the right side */
+.file-input-container {
+  width: 300px;
   padding: 10px;
-  border: none;  /* Remove debugging border */
-  background-color: #fff;  /* Cleaner background */
-  overflow-y: auto;
-  max-height: 600px;
-}
-
-/* Dropdown styling */
-.dropdown-section {
-  margin-bottom: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-}
-
-.dropdown-header {
-  cursor: pointer;
-  background-color: #f1f1f1;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  transition: background-color 0.3s ease;
-}
-
-.dropdown-header:hover {
-  background-color: #e1e1e1;
-}
-
-/* Dropdown content hidden initially */
-.dropdown-content {
-  display: none;
-  padding: 10px;
-  border-left: 1px solid #ccc;
-  border-right: 1px solid #ccc;
-  border-bottom: 1px solid #ccc;
-  border-radius: 0 0 5px 5px;
-  background-color: #fafafa;
-}
-
-/* Add some styling for the list of holes */
-ul {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-}
-
-li {
-  margin: 5px 0;
-  padding: 5px;
-  background-color: #f9f9f9;
   border: 1px solid #ddd;
-  border-radius: 3px;
-}
-
-/* Styling for the edit button */
-button {
-  margin-left: 10px;
-  padding: 5px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  cursor: pointer;
-}
-
-button:hover {
-  background-color: #45a049;
-}
-
-/* New styles for the file upload container and buttons */
-#file-upload-container {
+  background-color: #fff;
+  margin-left: 20px; /* Add some margin from the CAD viewer */
   display: flex;
-  flex-direction: column;  /* Stack items vertically */
-  gap: 10px;  /* Add some space between the elements */
-  margin-top: 20px;  /* Add margin at the top for spacing */
-}
-
-/* Styling for file input */
-#file-upload-container label,
-#file-upload-container input {
-  display: block;
-  width: 100%;  /* Make buttons and inputs take the full width */
-  padding: 10px;
-  margin-bottom: 10px;  /* Add margin below each element for better spacing */
-}
-
-/* Adjust the hidden file input for the stud */
-#stud-file-input {
-  display: none;
-}
-
-/* Add some spacing for the slider */
-#hole-slider {
-  margin-bottom: 20px;  /* Add spacing below the slider */
+  flex-direction: column;
 }

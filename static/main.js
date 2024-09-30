@@ -154,28 +154,35 @@ function editHoleDiameter(diameter, index) {
     .catch(error => console.error('Error loading STL:', error));
   }
   
-
-
-
   document.getElementById('container').addEventListener('click', (event) => {
-    // Only toggle hole lock if a hole is currently highlighted
-    if (highlightedHoleMesh) {
-        toggleHoleLock(detectedHole);  // Assuming `detectedHole` holds the current detected hole
-    } else if (!highlightedHoleMesh && !highlightedEdge) {
-        // If no holes or edges are highlighted, hide weld/fold options
-        hideWeldFoldOptions();
+    let hasHoleHighlighted = highlightedHoleMesh !== null;
+    let hasEdgeHighlighted = highlightedEdge !== null;
+
+    // If a hole is highlighted
+    if (hasHoleHighlighted) {
+        toggleHoleLock(detectedHole);  // Lock or unlock the detected hole
+      // Hide "Weld" and "Fold" options when a hole is selected
     }
 
-    // Only toggle edge lock if an edge is currently highlighted
-    if (highlightedEdge) {
-        toggleEdgeLock(highlightedEdge, event);  // Assuming `highlightedEdge` holds the current highlighted edge
-    } else if (!highlightedEdge && !highlightedHoleMesh) {
-        // If no edges or holes are highlighted, clear any selections and hide the weld/fold options
+    // If an edge is highlighted
+    if (hasEdgeHighlighted) {
+        toggleEdgeLock(highlightedEdge, event);  // Toggle lock for the highlighted edge
+    }
+
+
+    // If neither a hole nor an edge is highlighted, clear selections and hide all options
+    if (!hasHoleHighlighted && !hasEdgeHighlighted) {
         selectedEdges.forEach(e => removeHighlightFromEdge(e));
         selectedEdges = [];
+
+        // Hide all options since nothing is highlighted
         hideWeldFoldOptions();
+        hideStudUploadOptions();
     }
 });
+
+
+
   
 
 
@@ -394,7 +401,9 @@ function toggleHoleLock(hole) {
         // Unlock the hole if it was already selected
         selectedHole = null;
         removeHighlightFromModel();
-        removeHighlightFromDropdown();
+        //removeHighlightFromDropdown();
+        hideStudUploadOptions();       // Show "Stud Upload" and "Edit Diameter" when a hole is selected
+        //hideWeldFoldOptions();  
 
         // Hide the stud file input when no hole is selected
         document.getElementById('stud-file-input').style.display = 'none';
@@ -403,14 +412,17 @@ function toggleHoleLock(hole) {
 
     
       } else {
+        
         selectedHole = hole;
         highlightHoleInModel(hole);
-        highlightHoleInDropdown(hole);
+        showStudUploadOptions();       // Show "Stud Upload" and "Edit Diameter" when a hole is selected
+        //hideWeldFoldOptions();   
+        //highlightHoleInDropdown(hole);
 
-        // Show the stud file input when a hole is selected
-        document.getElementById('stud-file-input').style.display = 'block';
-        document.getElementById('edit-diameter-input').style.display = 'block';
-        document.getElementById('edit-diameter-label').style.display = 'block';
+        // // Show the stud file input when a hole is selected
+        // document.getElementById('stud-file-input').style.display = 'block';
+        // document.getElementById('edit-diameter-input').style.display = 'block';
+        // document.getElementById('edit-diameter-label').style.display = 'block';
     }
 }
 
@@ -788,20 +800,19 @@ function removeHighlightFromEdge() {
   }
 }
 
-
 // Function to toggle the lock on an edge when clicked
 function toggleEdgeLock(edge, event) {
   // Check if the Control key (Ctrl) is pressed
   const isCtrlPressed = event.ctrlKey || event.metaKey;  // 'metaKey' for Mac (Command key)
 
-  if (!isCtrlPressed) {
+    if (!isCtrlPressed) {
       // If Ctrl is not pressed, clear all previously selected edges
       selectedEdges.forEach(e => removeHighlightFromEdge(e));
       selectedEdges = [];
-  }
+    }
 
   // If Ctrl is pressed or no edges are selected, continue the selection process
-  else {
+    else {
       // If selecting a third edge (when Ctrl is pressed), reset selection
       if (selectedEdges.length >= 2) {
           // Clear all previous selections
@@ -809,17 +820,19 @@ function toggleEdgeLock(edge, event) {
           selectedEdges = [];
           console.log("reset selection")
       }
-  }  
-  if (!selectedEdges.includes(edge)) {  // Ensure the same edge is not added multiple times
+    }  
+    if (!selectedEdges.includes(edge)) {  // Ensure the same edge is not added multiple times
   // Add the new edge to the selection and highlight it
       selectedEdges.push(edge);
       highlightEdge(edge);
-  }
-      // If exactly two edges are selected, show the weld/fold options
-      if (selectedEdges.length === 2) {
-          console.log('call for options')
-          showWeldFoldOptions();
-      }
+    }
+    // If exactly two edges are selected, show the weld/fold options
+    if (selectedEdges.length === 2) {
+        showWeldFoldOptions();
+    }
+    else{
+        hideWeldFoldOptions();     // Hide "Weld" and "Fold" options if fewer or more than two edges are selected
+    }
   }
 
 
@@ -854,6 +867,23 @@ function hideWeldFoldOptions() {
     weldFoldOptions.style.display = 'none';
     weldFoldLabel.style.display = 'none';
 }
+
+// Function to show "Stud Upload" and "Edit Diameter" options
+function showStudUploadOptions() {
+    document.getElementById('stud-file-label').style.display = 'block';
+    document.getElementById('stud-file-input').style.display = 'block';
+    document.getElementById('edit-diameter-label').style.display = 'block';
+    document.getElementById('edit-diameter-input').style.display = 'block';
+}
+
+// Function to hide "Stud Upload" and "Edit Diameter" options
+function hideStudUploadOptions() {
+    document.getElementById('stud-file-label').style.display = 'none';
+    document.getElementById('stud-file-input').style.display = 'none';
+    document.getElementById('edit-diameter-label').style.display = 'none';
+    document.getElementById('edit-diameter-input').style.display = 'none';
+}
+
 
 function animate() {
   requestAnimationFrame(animate);
