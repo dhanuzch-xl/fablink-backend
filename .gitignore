@@ -1,1 +1,8 @@
 output/*
+# Python related
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.db
+*.sqlite3
