@@ -12,7 +12,7 @@ from OCC.Core.BRepBndLib import brepbndlib
 from OCC.Core.TopoDS import TopoDS_Face
 from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
 import uuid
-from find_edges import get_edges, edge_to_dict
+from utils.find_edges import get_edges, edge_to_dict
 
 app = Flask(__name__, static_folder='static')
 # Route to serve the index.html file
