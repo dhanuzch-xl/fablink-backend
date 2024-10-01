@@ -184,12 +184,6 @@ function editHoleDiameter(diameter, index) {
 });
 
 
-
-  
-
-
-
-
 // Prevent deselection when interacting with file input
 document.getElementById('stud-file-input').addEventListener('click', function(event) {
     event.stopPropagation();  // Prevent triggering the container click logic when selecting stud file
@@ -418,13 +412,7 @@ function toggleHoleLock(hole) {
         selectedHole = hole;
         highlightHoleInModel(hole);
         showStudUploadOptions();       // Show "Stud Upload" and "Edit Diameter" when a hole is selected
-        //hideWeldFoldOptions();   
-        //highlightHoleInDropdown(hole);
 
-        // // Show the stud file input when a hole is selected
-        // document.getElementById('stud-file-input').style.display = 'block';
-        // document.getElementById('edit-diameter-input').style.display = 'block';
-        // document.getElementById('edit-diameter-label').style.display = 'block';
     }
 }
 
@@ -480,61 +468,97 @@ document.getElementById('stud-file-input').addEventListener('change', function (
     .catch(error => console.error('Error uploading and loading the stud STL:', error));
 });
 
-
 function placeStudInHole(studGeometry, hole) {
-    // Create a material for the stud mesh
-    const studMesh = new THREE.Mesh(studGeometry, new THREE.MeshPhongMaterial({ color: 0xff0000 }));
+  // Create a material for the stud mesh
+  const studMesh = new THREE.Mesh(studGeometry, new THREE.MeshPhongMaterial({ color: 0xff0000 }));
 
-    // Recompute the bounding box of the stud to get its dimensions
-    studGeometry.computeBoundingBox(); // Ensure bounding box is computed
-    studGeometry.center(); // Center the geometry before scaling
+  // Recompute the bounding box of the stud to get its dimensions
+  studGeometry.computeBoundingBox(); // Ensure bounding box is computed
+  studGeometry.center(); // Center the geometry before scaling
 
-    // Calculate the bounding box of the stud to determine its diameter
-    const boundingBox = studGeometry.boundingBox; // Use geometry bounding box instead of fromObject
-    const studDiameter = boundingBox.max.x - boundingBox.min.x;  // Assuming the stud is cylindrical in the X direction
+  // Calculate the bounding box of the stud to determine its diameter
+  const boundingBox = studGeometry.boundingBox; // Use geometry bounding box instead of fromObject
+  const studDiameter = boundingBox.max.x - boundingBox.min.x;  // Assuming the stud is cylindrical in the X direction
 
-    console.log('Detected stud diameter:', studDiameter);  // Debugging
+  console.log('Detected stud diameter:', studDiameter);  // Debugging
 
-    // Get the hole diameter
-    const holeDiameter = hole.diameter;
+  // Get the hole diameter
+  const holeDiameter = hole.diameter;
 
-    // Calculate the scale factor to match the hole diameter, accounting for plate scaling
-    const scale = (holeDiameter / studDiameter) *  plate.scale.x; // Include plate's scale in calculation
+  // Calculate the scale factor to match the hole diameter, accounting for plate scaling
+  const scale = (holeDiameter / studDiameter) * plate.scale.x; // Include plate's scale in calculation
 
-    console.log('Calculated scale:', scale);
+  console.log('Calculated scale:', scale);
 
-    // Apply the scale uniformly to the stud mesh, considering the plate's scale
-    studMesh.scale.set(scale, scale, scale);
+  // Apply the scale uniformly to the stud mesh, considering the plate's scale
+  studMesh.scale.set(scale, scale, scale);
 
-    // Set the scaled stud position to the selected hole's position
-    studMesh.position.set(
-        hole.position.x * plate.scale.x,
-        hole.position.y * plate.scale.y,
-        hole.position.z * plate.scale.z
-    );
+  // Set the scaled stud position to the selected hole's position
+  studMesh.position.set(
+      hole.position.x * plate.scale.x,
+      hole.position.y * plate.scale.y,
+      hole.position.z * plate.scale.z
+  );
 
-    // Ensure the holeAxis is a THREE.Vector3 object
-    const holeAxis = new THREE.Vector3(hole.axis.x, hole.axis.y, hole.axis.z);
-    const defaultAxis = new THREE.Vector3(0, 0, 1); // Assuming the stud is aligned along the Z-axis by default
+  // Ensure the holeAxis is a THREE.Vector3 object
+  const holeAxis = new THREE.Vector3(hole.axis.x, hole.axis.y, hole.axis.z);
+  const defaultAxis = new THREE.Vector3(0, 0, 1); // Assuming the stud is aligned along the Z-axis by default
 
-    // Normalize the axis vectors
-    holeAxis.normalize();
-    defaultAxis.normalize();
+  // Normalize the axis vectors
+  holeAxis.normalize();
+  defaultAxis.normalize();
 
-    // Calculate the quaternion for rotation to align the stud with the hole's axis
-    const quaternion = new THREE.Quaternion().setFromUnitVectors(defaultAxis, holeAxis);
-    studMesh.quaternion.copy(quaternion);
+  // Calculate the quaternion for rotation to align the stud with the hole's axis
+  const quaternion = new THREE.Quaternion().setFromUnitVectors(defaultAxis, holeAxis);
+  studMesh.quaternion.copy(quaternion);
 
-    // Add the scaled stud to the scene
-    scene.add(studMesh);
+  // Add the scaled stud to the scene
+  scene.add(studMesh);
 
-    // Ensure the scene is rendered after adding the stud
-    renderer.render(scene, camera);
+  // Ensure the scene is rendered after adding the stud
+  renderer.render(scene, camera);
 
-    addJob('stud', hole, 'Placed stud in the selected hole');
-
-    
+  // Add the job to the job list, including the studMesh so we can remove it later
+  addJob('stud', hole, 'Placed stud in the selected hole', { studMesh });
 }
+function removeStudFromHole(jobIndex) {
+  // Check if the job index is valid
+  if (jobIndex < 0 || jobIndex >= jobs.length) {
+      console.error('Invalid job index.');
+      return;
+  }
+  console.log('jobindex in remove button',jobIndex); // For debugging
+
+  // Get the job data using the jobIndex
+  const job = jobs[jobIndex];
+
+  // Ensure that the job is of type 'stud'
+  if (job.type !== 'stud') {
+      console.error('The job is not related to a stud.');
+      return;
+  }
+
+  // Get the stud mesh associated with the job
+  const studMesh = job.additionalInfo.studMesh;
+
+  // Remove the stud mesh from the scene
+  if (studMesh) {
+      scene.remove(studMesh);
+      renderer.render(scene, camera);  // Re-render the scene after removing the stud
+
+      console.log('Stud removed from the selected hole.');
+  } else {
+      console.error('No stud mesh found to remove.');
+  }
+
+  // Remove the job from the job list (undo the operation)
+  jobs.splice(jobIndex, 1);
+
+  console.log('Job related to placing stud has been removed.');
+}
+
+
+
 
 function reloadModifiedModel(stlUrl) {
   // Remove the current plate from the scene, if it exists
@@ -902,47 +926,80 @@ function animate() {
 
 
 let jobs = [];
-
 function addJob(type, data, description, additionalInfo = null) {
-    let jobEntry;
-  
-    if (type === 'weld' || type === 'fold') {
-      // For edges (where data is the geometry position)
+  let jobEntry;
+
+  if (type === 'weld' || type === 'fold') {
       const start = new THREE.Vector3(
-        data.getX(0), // x1
-        data.getY(0), // y1
-        data.getZ(0)  // z1
+          data.getX(0), // x1
+          data.getY(0), // y1
+          data.getZ(0)  // z1
       );
-  
+
       const end = new THREE.Vector3(
-        data.getX(1), // x2
-        data.getY(1), // y2
-        data.getZ(1)  // z2
+          data.getX(1), // x2
+          data.getY(1), // y2
+          data.getZ(1)  // z2
       );
-  
+
       jobEntry = `Type: ${type}, Start: (${start.x.toFixed(2)}, ${start.y.toFixed(2)}, ${start.z.toFixed(2)}), ` +
                  `End: (${end.x.toFixed(2)}, ${end.y.toFixed(2)}, ${end.z.toFixed(2)}) - ${description}`;
-    } else if (type === 'Edithole') {
-      // For hole operations (where data is the hole's position as THREE.Vector3 and additionalInfo is the diameter)
+  } else if (type === 'Edithole') {
       const position = data.position;  // Assuming data is an object that has a position property (THREE.Vector3)
       jobEntry = `Type: ${type}, Position: (${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)}), ` +
                  `New Diameter: ${additionalInfo}mm - ${description}`;
-    } else if (type === 'stud') {
-      // For stud placement (where data is the hole's position as THREE.Vector3)
+  } else if (type === 'stud') {
       const position = data.position;  // Assuming data is the hole where the stud is placed
       jobEntry = `Type: ${type}, Stud Placed at: (${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)}) - ${description}`;
-    }
-  
-    console.log(jobEntry);  // For debugging
-  
-    // Add job to the job list (DOM manipulation)
-    const jobList = document.getElementById('jobs-list');
-    const jobItem = document.createElement('div');
-    jobItem.classList.add('job-entry');
-    jobItem.innerHTML = `<h3>${type}</h3><p>${jobEntry}</p>`;
-    jobList.appendChild(jobItem);
   }
+
+  console.log(jobEntry);  // For debugging
+
+  // Add job to the jobs array
+  const jobIndex = jobs.length;  // Capture the index for this job
+  console.log('jobindex',jobIndex); // For debugging
+  jobs.push({ type, data, description, additionalInfo });
+
+  // Add job to the job list (DOM manipulation)
+  const jobList = document.getElementById('jobs-list');
+  const jobItem = document.createElement('div');
+  jobItem.classList.add('job-entry');
+  jobItem.innerHTML = `<h3>${type}</h3><p>${jobEntry}</p>`;
+
+  // Add the close button
+  const closeButton = document.createElement('button');
+  closeButton.textContent = 'Undo';
+  closeButton.classList.add('close-button');
   
+  // Attach job index to the close button using a data-* attribute
+  closeButton.setAttribute('data-job-index', jobIndex);
+  
+  // Event listener to undo the job when the button is clicked
+  closeButton.addEventListener('click', function(event) {
+      // Get the job index from the button's data attribute
+      const index = parseInt(event.target.getAttribute('data-job-index'), 10);
+
+      // Call the appropriate undo function depending on the job type
+      if (jobs[index].type === 'stud') {
+          removeStudFromHole(index);  // Pass the hole data for undoing the stud placement
+      } else if (jobs[index].type === 'weld' || jobs[index].type === 'fold') {
+        console.log('undone')
+          //undoEdgeOperation(index);  // Assuming this is the function to undo weld or fold
+      } else if (jobs[index].type === 'Edithole') {
+        TODO: "handle undo editHoleDiameter operation"
+        console.log('None implemented')
+          //undoHoleEdit(index);  // Assuming this is the function to undo hole edits
+      }
+      // Remove the job entry from the DOM
+      jobList.removeChild(jobItem);
+      // Remove the job from the jobs array
+      jobs.splice(index, 1);  // Remove the job from the array
+  });
+
+  jobItem.appendChild(closeButton);
+  jobList.appendChild(jobItem);
+}
+
 
 // Function to display the job in the right-side bar
 function displayJob(job) {
@@ -964,7 +1021,25 @@ function displayJob(job) {
         jobData.textContent = `Data: ${job.data}`;
         jobEntry.appendChild(jobData);
     }
+    // Add the close button to each job entry
+    const closeButton = document.createElement('button');
+    closeButton.textContent = 'Undo';
+    closeButton.classList.add('close-button');
 
+    closeButton.addEventListener('click', function() {
+        if (job.type === 'stud') {
+            removeStudFromHole(job.hole);  // Assuming hole data is part of job
+        } else if (job.type === 'weld' || job.type === 'fold') {
+            undoEdgeOperation(job.data);
+        } else if (job.type === 'Edithole') {
+            undoHoleEdit(job.data);
+        }
+        
+        // Remove the job entry from the DOM
+        jobList.removeChild(jobEntry);
+    });
+
+    jobEntry.appendChild(closeButton);
     jobList.appendChild(jobEntry);
 }
 
