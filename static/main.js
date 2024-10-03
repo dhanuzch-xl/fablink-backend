@@ -1089,7 +1089,21 @@ function generateReport() {
 
   // Display the final report in the console (you can also display it on the page)
   console.log(JSON.stringify(report, null, 2));
+  // Convert the report object to a JSON string
+  const reportJSON = JSON.stringify(report, null, 2);
 
+  // Create a blob with the JSON data and create a download link
+  const blob = new Blob([reportJSON], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  // Create an anchor element and trigger a download
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `report_${reportId}.json`;
+  a.click();
+
+  // Clean up the object URL after the download
+  URL.revokeObjectURL(url);
   // Optionally, display the report in an alert or a DOM element
   alert("Report generated with ID: " + reportId + "\nCheck the console for details.");
 }
