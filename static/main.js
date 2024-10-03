@@ -1043,5 +1043,127 @@ function displayJob(job) {
     jobList.appendChild(jobEntry);
 }
 
+function generateReport() {
+  // Generate a report ID based on the current date and time (e.g., YYYYMMDDHHMMSS)
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  
+  const reportId = `${year}${month}${day}${hours}${minutes}${seconds}`; // Formatted as YYYYMMDDHHMMSS
+
+  // Create the report object
+  const report = {
+    item_id: reportId,
+    material: {
+      type: "Aluminum",
+      grade: "5052",
+      thickness: 1.5,
+      hardness: 85,
+      temper: "H32",
+      grain_direction: "Longitudinal"
+    },
+    dimensions_after_flattening: {
+      length: 1200,
+      width: 800
+    },
+    cutting: {
+      type: "Laser",
+      perimeter_length: 500,
+      number_of_piercings: 10,
+      edge_quality: "High",
+      tolerance: 0.05,
+      kerf_width: 0.1,
+      special_instructions: "Ensure smooth edges"
+    },
+    hardware_insertions: {
+      hardware: [
+        {
+          insertion_type: "standoff",
+          hardware: {
+            part_number: "ST123"
+          },
+          insertion_method: "Press-fit",
+          quantity: 4,
+          coordinates: [
+            { x: 100, y: 200, z: 0 }
+          ]
+        }
+      ],
+      special_instructions: "Insert standoffs evenly"
+    },
+    finish: {
+      type: "Powder Coating",
+      color: "Black",
+      thickness: 50,
+      surface_prep: "Sandblasting",
+      masking: {
+        required: true,
+        areas: [
+          {
+            coordinates: [
+              { x: 50, y: 50, z: 0 }
+            ],
+            dimensions: { length: 10, width: 10 }
+          }
+        ]
+      },
+      coating_specification: "RAL 9006",
+      gloss_level: "Matte",
+      texture: "Smooth",
+      special_instructions: "Apply two coats"
+    },
+    services: {
+      tapping: {
+        taps: [
+          {
+            quantity: 2,
+            thread_size: "M4",
+            thread_type: "Metric Coarse",
+            hole_depth: 10,
+            hole_type: "Through",
+            coordinates: [{ x: 100, y: 200, z: 0 }],
+            hole_id: "hole1",
+            special_instructions: "Tighten threads securely"
+          }
+        ],
+        special_instructions: "Apply lubricant"
+      },
+      bending: {
+        bends: [
+          {
+            bend_radius: 5,
+            bend_direction: "Up",
+            tolerance: 0.5,
+            sequence: [1],
+            bend_angles: [
+              {
+                angle: 90,
+                bend_length: 100,
+                start_point: { x: 0, y: 0, z: 0 },
+                end_point: { x: 100, y: 100, z: 0 }
+              }
+            ]
+          }
+        ],
+        special_instructions: "Use smooth bends"
+      }
+    },
+    quantity: 100,
+    custom_instructions: "Ensure all operations follow ISO standards"
+  };
+
+  // Display the report in the console (you can also display it on the page)
+  console.log(JSON.stringify(report, null, 2));
+
+  // Optionally, display it in a div or an alert
+  alert("Report generated! Check the console for details.");
+}
+// Attach the event listener to the submit button
+document.getElementById('submit-report').addEventListener('click', generateReport);
+
 
 init();

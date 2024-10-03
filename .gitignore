@@ -5,4 +5,23 @@ output/*
 *.pyd
 __pycache__/
 *.db
+*.sqlite3a# Output and temporary files
+output/*
+*.json  # Ignore all JSON files in the root or any subdirectory (if temporary)
+*.log   # Optional: Ignore log files if applicable
+
+# Python related
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.db
 *.sqlite3
+
+# Ignore temporary or auto-generated Python files
+*.ipynb_checkpoints/  # For Jupyter notebooks
+*.env  # If you have environment variables in .env files
+
+# Ignore virtual environments
+venv/
+.env/

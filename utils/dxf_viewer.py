@@ -57,5 +57,5 @@ def dxf_to_occ(dxf_file):
     start_display()
 
 # Example usage:
-dxf_file = "output/WP-2.dxf"
+dxf_file = "output_flat.dxf"
 dxf_to_occ(dxf_file)

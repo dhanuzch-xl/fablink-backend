@@ -1,4 +1,5 @@
 TODO:
+flaten the goemetry - Note that step files vertical axis could be Y or Z axis
 Need undo facility. Create list of operations and when the tile of operation is closed that should undo the change in stl file.
 inverse stud
 painting

@@ -3,3 +3,7 @@ conda install conda-forge::pythonocc-core
 conda install werkzeug
 conda install -c conda-forge flask-cors
 conda install flask
+conda install -c conda-forge eigen
+conda install -c conda-forge rapidjson
+conda install -c conda-forge vtk
+
