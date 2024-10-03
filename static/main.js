@@ -521,44 +521,33 @@ function placeStudInHole(studGeometry, hole) {
   // Add the job to the job list, including the studMesh so we can remove it later
   addJob('stud', hole, 'Placed stud in the selected hole', { studMesh });
 }
-function removeStudFromHole(jobIndex) {
-  // Check if the job index is valid
-  if (jobIndex < 0 || jobIndex >= jobs.length) {
-      console.error('Invalid job index.');
-      return;
-  }
-  console.log('jobindex in remove button',jobIndex); // For debugging
 
-  // Get the job data using the jobIndex
-  const job = jobs[jobIndex];
+
+function removeStudFromHole(jobId) {
+  // Find the job using its ID
+  console.log('called to remove stud from hole');
+  const job = jobs.find(j => j.id === jobId);
 
   // Ensure that the job is of type 'stud'
-  if (job.type !== 'stud') {
-      console.error('The job is not related to a stud.');
+  if (!job || job.type !== 'stud') {
+      console.error('The job is not related to a stud or was not found.');
       return;
   }
 
   // Get the stud mesh associated with the job
-  const studMesh = job.additionalInfo.studMesh;
+  const studMesh = job.additionalInfo?.studMesh;
 
   // Remove the stud mesh from the scene
   if (studMesh) {
       scene.remove(studMesh);
       renderer.render(scene, camera);  // Re-render the scene after removing the stud
-
       console.log('Stud removed from the selected hole.');
   } else {
-      console.error('No stud mesh found to remove.');
+      console.error('No stud mesh found to remove or stud mesh not provided in additionalInfo.');
   }
 
-  // Remove the job from the job list (undo the operation)
-  jobs.splice(jobIndex, 1);
-
-  console.log('Job related to placing stud has been removed.');
+  // No need to remove the job from the jobs array here as it's already handled in handleUndo.
 }
-
-
-
 
 function reloadModifiedModel(stlUrl) {
   // Remove the current plate from the scene, if it exists
@@ -926,6 +915,35 @@ function animate() {
 
 
 let jobs = [];
+
+// Generate a unique job ID for each job
+function generateJobId() {
+  return 'job-' + Math.random().toString(36).substr(2, 9);
+}
+
+  // Centralized undo handler function
+  function handleUndo(jobId) {
+    console.log('handleUndo is called');
+    // Find the job using its ID
+
+    const job = jobs.find(j => j.id === jobId);
+    console.log('jobs',jobs);
+    console.log('jobId',jobId);
+    console.log('job',job);
+    // Call the appropriate undo function depending on the job type
+    if (job && job.type === 'stud') {
+        removeStudFromHole(jobId);  // Call the function to undo the stud placement
+    } else if (job && (job.type === 'weld' || job.type === 'fold')) {
+        undoEdgeOperation(jobId);  // Assuming you have a function to undo weld or fold
+    } else if (job && job.type === 'Edithole') {
+        undoHoleEdit(jobId);  // Assuming you have a function to undo hole edits
+    }
+
+    // Remove the job from the jobs array by filtering it out
+    jobs = jobs.filter(j => j.id !== jobId);  // Keep only jobs with a different ID
+  }
+
+// Add job to the list and display it in the UI
 function addJob(type, data, description, additionalInfo = null) {
   let jobEntry;
 
@@ -955,15 +973,17 @@ function addJob(type, data, description, additionalInfo = null) {
 
   console.log(jobEntry);  // For debugging
 
-  // Add job to the jobs array
-  const jobIndex = jobs.length;  // Capture the index for this job
-  console.log('jobindex',jobIndex); // For debugging
-  jobs.push({ type, data, description, additionalInfo });
+  // Generate a unique job ID
+  const jobId = generateJobId();
+
+  // Add job to the jobs array with a unique ID
+  jobs.push({ id: jobId, type, data, description, additionalInfo });
 
   // Add job to the job list (DOM manipulation)
   const jobList = document.getElementById('jobs-list');
   const jobItem = document.createElement('div');
   jobItem.classList.add('job-entry');
+  jobItem.setAttribute('data-job-id', jobId);
   jobItem.innerHTML = `<h3>${type}</h3><p>${jobEntry}</p>`;
 
   // Add the close button
@@ -971,29 +991,18 @@ function addJob(type, data, description, additionalInfo = null) {
   closeButton.textContent = 'Undo';
   closeButton.classList.add('close-button');
   
-  // Attach job index to the close button using a data-* attribute
-  closeButton.setAttribute('data-job-index', jobIndex);
-  
-  // Event listener to undo the job when the button is clicked
-  closeButton.addEventListener('click', function(event) {
-      // Get the job index from the button's data attribute
-      const index = parseInt(event.target.getAttribute('data-job-index'), 10);
+  // Attach job ID to the close button using a data-* attribute
+  closeButton.setAttribute('data-job-id', jobId);  // Ensure this is correctly set
 
-      // Call the appropriate undo function depending on the job type
-      if (jobs[index].type === 'stud') {
-          removeStudFromHole(index);  // Pass the hole data for undoing the stud placement
-      } else if (jobs[index].type === 'weld' || jobs[index].type === 'fold') {
-        console.log('undone')
-          //undoEdgeOperation(index);  // Assuming this is the function to undo weld or fold
-      } else if (jobs[index].type === 'Edithole') {
-        TODO: "handle undo editHoleDiameter operation"
-        console.log('None implemented')
-          //undoHoleEdit(index);  // Assuming this is the function to undo hole edits
-      }
-      // Remove the job entry from the DOM
-      jobList.removeChild(jobItem);
-      // Remove the job from the jobs array
-      jobs.splice(index, 1);  // Remove the job from the array
+  // Attach the event listener for undoing the job
+  closeButton.addEventListener('click', function(event) {
+    // Get the job ID from the button's data attribute
+    const jobId = event.target.getAttribute('data-job-id');
+    // Call the centralized undo handler
+    handleUndo(jobId);
+
+    // Remove the job entry from the DOM
+    jobItem.remove();
   });
 
   jobItem.appendChild(closeButton);
@@ -1001,169 +1010,94 @@ function addJob(type, data, description, additionalInfo = null) {
 }
 
 
-// Function to display the job in the right-side bar
-function displayJob(job) {
-    const jobList = document.getElementById('jobs-list');
-    
-    const jobEntry = document.createElement('div');
-    jobEntry.className = 'job-entry';
-    
-    const jobTitle = document.createElement('h3');
-    jobTitle.textContent = `Operation: ${job.type}`;
-    jobEntry.appendChild(jobTitle);
-    
-    const jobPosition = document.createElement('p');
-    jobPosition.textContent = `Position: (${job.position.x.toFixed(2)}, ${job.position.y.toFixed(2)}, ${job.position.z.toFixed(2)})`;
-    jobEntry.appendChild(jobPosition);
+let reportTemplate = {};
 
-    if (job.data) {
-        const jobData = document.createElement('p');
-        jobData.textContent = `Data: ${job.data}`;
-        jobEntry.appendChild(jobData);
-    }
-    // Add the close button to each job entry
-    const closeButton = document.createElement('button');
-    closeButton.textContent = 'Undo';
-    closeButton.classList.add('close-button');
-
-    closeButton.addEventListener('click', function() {
-        if (job.type === 'stud') {
-            removeStudFromHole(job.hole);  // Assuming hole data is part of job
-        } else if (job.type === 'weld' || job.type === 'fold') {
-            undoEdgeOperation(job.data);
-        } else if (job.type === 'Edithole') {
-            undoHoleEdit(job.data);
-        }
-        
-        // Remove the job entry from the DOM
-        jobList.removeChild(jobEntry);
-    });
-
-    jobEntry.appendChild(closeButton);
-    jobList.appendChild(jobEntry);
+// Function to fetch the report template
+async function fetchReportTemplate() {
+  try {
+    const response = await fetch('/static/report_template.json'); // Ensure the correct path to the JSON file
+    reportTemplate = await response.json();
+    console.log("Template fetched: ", reportTemplate);
+  } catch (error) {
+    console.error("Error fetching report template: ", error);
+  }
 }
 
+// Function to generate the report based on the template and jobs
 function generateReport() {
-  // Generate a report ID based on the current date and time (e.g., YYYYMMDDHHMMSS)
   const now = new Date();
   const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+  const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
   const seconds = String(now.getSeconds()).padStart(2, '0');
-  
-  const reportId = `${year}${month}${day}${hours}${minutes}${seconds}`; // Formatted as YYYYMMDDHHMMSS
+  const reportId = `${year}${month}${day}${hours}${minutes}${seconds}`;
 
-  // Create the report object
-  const report = {
-    item_id: reportId,
-    material: {
-      type: "Aluminum",
-      grade: "5052",
-      thickness: 1.5,
-      hardness: 85,
-      temper: "H32",
-      grain_direction: "Longitudinal"
-    },
-    dimensions_after_flattening: {
-      length: 1200,
-      width: 800
-    },
-    cutting: {
-      type: "Laser",
-      perimeter_length: 500,
-      number_of_piercings: 10,
-      edge_quality: "High",
-      tolerance: 0.05,
-      kerf_width: 0.1,
-      special_instructions: "Ensure smooth edges"
-    },
-    hardware_insertions: {
-      hardware: [
-        {
+  // Clone the template object so we don't modify the original template
+  const report = JSON.parse(JSON.stringify(reportTemplate));
+  report.item_id = reportId;  // Set the report ID
+
+  // Iterate through the jobs array and fill in the report fields based on job types
+  jobs.forEach(job => {
+    switch (job.type) {
+      case 'weld':
+      case 'fold':
+        report.services.welding.welds.push({
+          weld_type: job.type,
+          location: {
+            start_point: job.data.start,
+            end_point: job.data.end
+          },
+          weld_size: 5,
+          weld_length: 100,
+          weld_symbol: "AWS Symbol",
+          post_weld_treatment: "Grinding",
+          special_requirements: job.description
+        });
+        break;
+
+      case 'Edithole':
+        report.services.tapping.taps.push({
+          quantity: 1,
+          thread_size: "M4",
+          thread_type: "Metric Coarse",
+          hole_depth: 10,
+          coordinates: [{ x: job.data.position.x, y: job.data.position.y, z: job.data.position.z }],
+          hole_id: "hole1",
+          special_instructions: `Hole edited, new diameter: ${job.additionalInfo}`
+        });
+        break;
+
+      case 'stud':
+        report.hardware_insertions.hardware.push({
           insertion_type: "standoff",
           hardware: {
             part_number: "ST123"
           },
           insertion_method: "Press-fit",
-          quantity: 4,
-          coordinates: [
-            { x: 100, y: 200, z: 0 }
-          ]
-        }
-      ],
-      special_instructions: "Insert standoffs evenly"
-    },
-    finish: {
-      type: "Powder Coating",
-      color: "Black",
-      thickness: 50,
-      surface_prep: "Sandblasting",
-      masking: {
-        required: true,
-        areas: [
-          {
-            coordinates: [
-              { x: 50, y: 50, z: 0 }
-            ],
-            dimensions: { length: 10, width: 10 }
-          }
-        ]
-      },
-      coating_specification: "RAL 9006",
-      gloss_level: "Matte",
-      texture: "Smooth",
-      special_instructions: "Apply two coats"
-    },
-    services: {
-      tapping: {
-        taps: [
-          {
-            quantity: 2,
-            thread_size: "M4",
-            thread_type: "Metric Coarse",
-            hole_depth: 10,
-            hole_type: "Through",
-            coordinates: [{ x: 100, y: 200, z: 0 }],
-            hole_id: "hole1",
-            special_instructions: "Tighten threads securely"
-          }
-        ],
-        special_instructions: "Apply lubricant"
-      },
-      bending: {
-        bends: [
-          {
-            bend_radius: 5,
-            bend_direction: "Up",
-            tolerance: 0.5,
-            sequence: [1],
-            bend_angles: [
-              {
-                angle: 90,
-                bend_length: 100,
-                start_point: { x: 0, y: 0, z: 0 },
-                end_point: { x: 100, y: 100, z: 0 }
-              }
-            ]
-          }
-        ],
-        special_instructions: "Use smooth bends"
-      }
-    },
-    quantity: 100,
-    custom_instructions: "Ensure all operations follow ISO standards"
-  };
+          quantity: 1,
+          coordinates: [{ x: job.data.position.x, y: job.data.position.y, z: job.data.position.z }]
+        });
+        report.hardware_insertions.special_instructions = "Insert standoffs evenly";
+        break;
 
-  // Display the report in the console (you can also display it on the page)
+      default:
+        console.log(`Unrecognized job type: ${job.type}`);
+    }
+  });
+
+  // Display the final report in the console (you can also display it on the page)
   console.log(JSON.stringify(report, null, 2));
 
-  // Optionally, display it in a div or an alert
-  alert("Report generated! Check the console for details.");
+  // Optionally, display the report in an alert or a DOM element
+  alert("Report generated with ID: " + reportId + "\nCheck the console for details.");
 }
+
 // Attach the event listener to the submit button
 document.getElementById('submit-report').addEventListener('click', generateReport);
 
+// Fetch the report template when the script loads
+fetchReportTemplate();
 
 init();

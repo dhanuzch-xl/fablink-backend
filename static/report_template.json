@@ -1,0 +1,59 @@
+{
+    "item_id": "string",
+    "material": {
+      "type": "string",
+      "grade": "string",
+      "thickness": "number",
+      "hardness": "number",
+      "temper": "string",
+      "grain_direction": "string"
+    },
+    "dimensions_after_flattening": {
+      "length": "number",
+      "width": "number"
+    },
+    "cutting": {
+      "type": "string",
+      "perimeter_length": "number",
+      "number_of_piercings": "number",
+      "edge_quality": "string",
+      "tolerance": "number",
+      "kerf_width": "number",
+      "special_instructions": "string"
+    },
+    "hardware_insertions": {
+      "hardware": [],
+      "special_instructions": "string"
+    },
+    "finish": {
+      "type": "string",
+      "color": "string",
+      "thickness": "number",
+      "surface_prep": "string",
+      "masking": {
+        "required": "boolean",
+        "areas": []
+      },
+      "coating_specification": "string",
+      "gloss_level": "string",
+      "texture": "string",
+      "special_instructions": "string"
+    },
+    "services": {
+      "tapping": {
+        "taps": [],
+        "special_instructions": "string"
+      },
+      "bending": {
+        "bends": [],
+        "special_instructions": "string"
+      },
+      "welding": {
+        "welds": [],
+        "special_instructions": "string"
+      }
+    },
+    "quantity": "number",
+    "custom_instructions": "string"
+  }
+  
