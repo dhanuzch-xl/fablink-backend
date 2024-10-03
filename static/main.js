@@ -76,7 +76,7 @@ function editHoleDiameter(diameter, index) {
         holes[index].diameter = parseFloat(newDiameter);
        
        // add job to list
-        addJob('hole', holes[index], 'Hole diameter changed', newDiameter);
+        addJob('Edithole', holes[index], 'Hole diameter changed', newDiameter);
         // Update the hole in the model in real-time
         updateHoleInModel(index, parseFloat(newDiameter));
   
