@@ -116,7 +116,7 @@ function editHoleDiameter(diameter, index) {
     const formData = new FormData();
     formData.append('file', file);
   
-    fetch('http://127.0.0.1:5000/api/upload_file', {
+    fetch('https://justmfgflaskapp.azurewebsites.net//api/upload_file', {
         method: 'POST',
         body: formData
     })
@@ -132,7 +132,7 @@ function editHoleDiameter(diameter, index) {
   
         // Load the STL model
         const loader = new THREE.STLLoader();
-        loader.load('http://127.0.0.1:5000' + data.stlUrl, function (geometry) {
+        loader.load('https://justmfgflaskapp.azurewebsites.net/' + data.stlUrl, function (geometry) {
             const material = new THREE.MeshPhongMaterial({ color: 0x0077ff, specular: 0x111111, shininess: 200 });
             plate = new THREE.Mesh(geometry, material);
             plate.scale.set(0.1, 0.1, 0.1);
@@ -414,7 +414,7 @@ document.getElementById('stud-file-input').addEventListener('change', function (
     const formData = new FormData();
     formData.append('file', studFile);
 
-    fetch('http://127.0.0.1:5000/api/upload_stud', {
+    fetch('https://justmfgflaskapp.azurewebsites.net//api/upload_stud', {
         method: 'POST',
         body: formData,
         headers: {
@@ -432,7 +432,7 @@ document.getElementById('stud-file-input').addEventListener('change', function (
 
         // Load the STL model of the stud
         const loader = new THREE.STLLoader();
-        loader.load('http://127.0.0.1:5000' + data.stlUrl, function (geometry) {
+        loader.load('https://justmfgflaskapp.azurewebsites.net/' + data.stlUrl, function (geometry) {
             placeStudInHole(geometry, selectedHole);  // Place the stud in the selected hole
         });
     })

@@ -1,9 +1,9 @@
-conda install conda-forge::ezdxf
-conda install conda-forge::pythonocc-core
-conda install werkzeug
-conda install -c conda-forge flask-cors
-conda install flask
-conda install -c conda-forge eigen
-conda install -c conda-forge rapidjson
-conda install -c conda-forge vtk
+conda-forge::ezdxf
+conda-forge::pythonocc-core
+werkzeug
+conda-forge::flask-cors
+flask
+conda-forge::eigen
+conda-forge::rapidjson
+conda-forge::vtk
 

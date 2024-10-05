@@ -1,0 +1,12 @@
+name: myenv
+channels:
+  - conda-forge
+dependencies:
+  - ezdxf
+  - pythonocc-core
+  - werkzeug
+  - flask-cors
+  - flask
+  - eigen
+  - rapidjson
+  - vtk
