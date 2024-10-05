@@ -5,8 +5,11 @@ import uuid
 from utils.file_operations import allowed_file, convert_step_to_stl, process_step_file, save_uploaded_file, read_step, write_step, write_step_to_stl
 from utils.hole_operations import modify_hole_size
 
-
 app = Flask(__name__, static_folder='static')
+
+# Set secret key for session management
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your_default_secret_key')
+
 # Route to serve the index.html file
 @app.route('/')
 def index():
@@ -16,6 +19,7 @@ def index():
 @app.route('/static/<path:path>')
 def send_static(path):
     return send_from_directory('static', path)
+
 # Path to the models and output directory
 MODEL_DIR = os.path.join(os.getcwd(), 'models')
 OUTPUT_DIR = os.path.join(os.getcwd(), 'output')
@@ -24,7 +28,6 @@ ALLOWED_EXTENSIONS = {'stl', 'step', 'stp'}
 @app.route('/output/<path:filename>')
 def serve_output_file(filename):
     return send_from_directory(OUTPUT_DIR, filename)
-
 
 @app.route('/api/upload_file', methods=['POST'])
 def upload_file():
@@ -69,7 +72,6 @@ def convert_to_stl(filename):
     except FileNotFoundError as e:
         return jsonify({"error": str(e)}), 404
 
-
 @app.route('/api/upload_stud', methods=['POST'])
 def upload_and_place_stud():
     if 'file' not in request.files:
@@ -103,7 +105,6 @@ def upload_and_place_stud():
 
     app.logger.error("File type not allowed")
     return jsonify({'error': 'File type not allowed'}), 400
-
 
 @app.route('/api/change_hole_size', methods=['POST'])
 def change_hole_size():
@@ -140,8 +141,6 @@ def change_hole_size():
         "modified_step_file": f"/output/{os.path.basename(modified_step_path)}",
         "modified_stl_file": f"/output/{os.path.basename(modified_stl_path)}"
     }), 200
-
-
 
 if __name__ == '__main__':
     if not os.path.exists(MODEL_DIR):
