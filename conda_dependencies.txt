@@ -2,7 +2,6 @@ conda-forge::ezdxf
 conda-forge::pythonocc-core
 werkzeug
 conda-forge::flask-cors
-flask
 conda-forge::eigen
 conda-forge::rapidjson
 conda-forge::vtk
