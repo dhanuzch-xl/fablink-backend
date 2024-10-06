@@ -1,12 +1,10 @@
 TODO:
-flaten the goemetry - Note that step files vertical axis could be Y or Z axis
-Need undo facility. Create list of operations and when the tile of operation is closed that should undo the change in stl file.
-inverse stud
-painting
-report generation for human operator
-welding and folding specifications
-have to clean imports in server.py
-if the file is already an STL file, it’s directly returned without hole extraction. Have to change it.
+flaten the goemetry - Note that step files vertical axis could be Y or Z axis.
+inverse stud.
+painting operation.
+factory report update.
+welding and folding specifications.
+If the file is already an STL file, it’s directly returned without hole extraction. Have to change it.
 Need to check for non circular holes.
 Keep in mind that corrdinates of both the edges are necessary for operations to work.
 scaling factor variable used to map holes and rendering should be global setting.
