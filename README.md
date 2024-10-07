@@ -15,6 +15,10 @@ Add Loading Indicators:
     On the frontend, add visual cues like spinners or progress bars while files are uploading or being processed.
 
 
+Resources
+https://github.com/shaise/FreeCAD_SheetMetal/tree/master?tab=readme-ov-file
+
+
 
 ### main.js 
 
