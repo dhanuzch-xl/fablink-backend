@@ -7,60 +7,14 @@ from OCC.Core.BRepGProp import brepgprop
 from OCC.Core.gp import gp_Trsf
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCC.Core.TopExp import TopExp_Explorer
-from OCC.Core.TopAbs import TopAbs_FACE, TopAbs_EDGE
+from OCC.Core.TopAbs import TopAbs_FACE
 from OCC.Core.TopoDS import topods
 from math import isclose
 import math
 
-# Centralize the BendNode class here for consistent use across the project
-class BendNode:
-    """
-    Represents a node in the sheet metal structure for bend detection and analysis.
-    Each node corresponds to a face or pair of faces, representing a bend.
-    """
-    def __init__(self, face):
-        self.face = face
-        self.edges = []  # Edges connected to the face
-        self.surface_type = None  # Planar, Cylindrical
-        self.children = []  # Faces related to this face (bend relationships)
-        self.processed = False  # Whether this face has been processed
-        self.parent = None  # Parent node
-        self.bend_angle = None  # Angle between this face and its parent (if applicable)
-        self.bend_type = None  # Type of connection: flat, cylindrical, or other
 
-    def analyze_surface_type(self):
-        """
-        Determines whether the face is planar or cylindrical.
-        """
-        surf = BRepAdaptor_Surface(self.face)
-        surf_type = surf.GetType()
-
-        if surf_type == 0:  # Flat face (plane)
-            self.surface_type = "Flat"
-        elif surf_type == 1:  # Cylindrical face (typically a bend)
-            self.surface_type = "Cylindrical"
-
-    def analyze_edges(self):
-        """
-        Analyzes the edges of the face and stores them in the node.
-        """
-        exp = TopExp_Explorer(self.face, TopAbs_EDGE)
-        while exp.More():
-            edge = topods.Edge(exp.Current())
-            self.edges.append(edge)
-            exp.Next()
-
-    def add_child(self, child_node, bend_angle=None, bend_type=None):
-        """
-        Adds a child node to this node, establishing the parent-child relationship.
-        """
-        self.children.append(child_node)
-        child_node.parent = self
-        child_node.bend_angle = bend_angle
-        child_node.bend_type = bend_type
-
-# ---------------------------------------------------------------
-# Existing face extraction and transformation functions
+      
+# face extraction and transformation functions
 def extract_faces(shape):
     """
     Extract all faces from the shape and classify them as flat or curved.
@@ -134,3 +88,5 @@ def filter_faces_by_thickness(faces, thickness, tolerance=1e-6, min_area=300):
                     print(f"Found face pair with thickness {thickness}: Faces {i+1} and {j+1}, Area: {data['area']}")
                     break
     return plates if plates else print(f"No plates found with the specified thickness {thickness}.")
+
+
