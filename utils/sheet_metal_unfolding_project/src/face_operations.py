@@ -90,3 +90,4 @@ def filter_faces_by_thickness(faces, thickness, tolerance=1e-6, min_area=300):
     return plates if plates else print(f"No plates found with the specified thickness {thickness}.")
 
 
+

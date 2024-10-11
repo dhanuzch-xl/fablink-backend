@@ -25,3 +25,5 @@ __pycache__/
 # Ignore virtual environments
 venv/
 .env/
+.vscode/launch.json
+utils/sheet_metal_unfolding_project/highlighted_surfaces.png

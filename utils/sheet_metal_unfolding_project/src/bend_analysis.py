@@ -3,7 +3,6 @@ from OCC.Core.BRepAdaptor import BRepAdaptor_Surface, BRepAdaptor_Curve
 
 from OCC.Core.gp import gp_Vec
 from OCC.Core.TopAbs import TopAbs_VERTEX
-from OCC.Core.BRep import BRep_Tool
 from OCC.Core.TopAbs import TopAbs_EDGE
 from OCC.Core.gp import gp_Trsf, gp_Pnt
 from OCC.Core.TopExp import TopExp_Explorer
@@ -16,187 +15,157 @@ from OCC.Core.GProp import GProp_GProps
 from OCC.Core.BRepTools import breptools
 from OCC.Core.BRep import BRep_Tool
 
-class BendNode:
+
+
+
+def add_child(node, child_node, bend_angle=None, bend_type=None):
     """
-    Represents a node in the sheet metal structure for bend detection and analysis.
-    Each node corresponds to a face or pair of faces, representing a bend.
+    Adds a child node and stores the bend angle and type.
     """
-    def __init__(self, face):
-        self.face = face
-        self.edges = []  # Edges connected to the face
-        self.vertices = []  # Vertices connected to the face
-        self.surface_type = None  # Planar, Cylindrical
-        self.children = []  # Faces related to this face (bend relationships)
-        self.processed = False  # Whether this face has been processed
-        self.parent = None  # Parent node
-        self.bend_angle = None  # Angle between this face and its parent (if applicable)
-        self.axis = None  # Axis of the bend
-        self.bend_center = None  # Center of the bend
-        self.inner_radius = None  # Inner radius of the bend
-        self.tangent_vectors = []  # Tangent vectors at the bend
-        self.vertexDict = {}  # Dictionary to track vertex positions before and after bending
-        self.bend_dir = None # Bending direction up or down
+    node.children.append(child_node)
+    child_node.parent = node  # Set the parent of the child node
+    child_node.bend_angle = bend_angle  # Set the bend angle for the child node
+    child_node.bend_type = bend_type  # Set the bend type (optional)
 
-    def analyze_surface_type(self):
-        """
-        Determines whether the face is planar or cylindrical.
-        """
-        surf = BRepAdaptor_Surface(self.face)
-        surf_type = surf.GetType()
-
-        if surf_type == 0:  # Flat face (plane)
-            self.surface_type = "Flat"
-        elif surf_type == 1:  # Cylindrical face (typically a bend)
-            self.surface_type = "Cylindrical"
-        else:
-            self.surface_type = "Unknown"
-
-
-    def add_child(self, child_node, bend_angle=None, bend_type=None):
-        """
-        Adds a child node and stores the bend angle and type.
-        """
-        self.children.append(child_node)
-        child_node.parent = self  # Set the parent of the child node
-        child_node.bend_angle = bend_angle  # Set the bend angle for the child node
-        child_node.bend_type = bend_type  # Set the bend type (optional)
-
-    def analyze_edges_and_vertices(self):
-        """
-        Analyzes the edges and vertices of the face and stores them in the node.
-        """
-        # Analyze edges
-        exp_edge = TopExp_Explorer(self.face, TopAbs_EDGE)
-        while exp_edge.More():
-            edge = topods.Edge(exp_edge.Current())
-            self.edges.append(edge)
-            exp_edge.Next()
-
-        # Analyze vertices
-        exp_vertex = TopExp_Explorer(self.face, TopAbs_VERTEX)
-        while exp_vertex.More():
-            vertex = topods.Vertex(exp_vertex.Current())
-            self.vertices.append(vertex)
-            exp_vertex.Next()
-
-    
-    def track_vertices(self, transformation=None):
-        """
-        Function to track the vertices of the bend node's face.
-        Vertices are stored in the vertexDict before and after bending.
-        
-        Args:
-            transformation (gp_Trsf): The transformation (unfolding) to be applied to vertices.
-        """
-        for vertex in self.vertices:
-            original_position = BRep_Tool.Pnt(vertex)  # Original position using BRep_Tool_Pnt
-            
-            # Apply transformation (e.g., unfolding) if provided
-            if transformation:
-                unfolded_position = gp_Pnt(original_position.X(), original_position.Y(), original_position.Z())
-                unfolded_position.Transform(transformation)  # Apply the transformation
-            else:
-                unfolded_position = original_position  # No transformation applied yet
-
-            # Store the original and unfolded positions in vertexDict
-            self.vertexDict[vertex] = (original_position, unfolded_position)
-        
-
-    def calculate_tangent_vectors(self):
-        """
-        Calculate tangent vectors for smooth unfolding at the bend.
-        Tangent vectors are based on the cross-product of radial vectors.
-        """
-        tangent_vectors = []
-        # Assuming we have two vertices connected by an edge, calculate tangents
-        if len(self.edges) > 0 and len(self.vertices) >= 2:
-            for edge in self.edges:
-                # Calculate tangent using vertices connected by the edge
-                vertex1 = self.vertices[0]
-                vertex2 = self.vertices[1]
-                tangent = gp_Vec(BRep_Tool.Pnt(vertex1), BRep_Tool.Pnt(vertex2)).Normalized()
-                tangent_vectors.append(tangent)
-
-        self.tangent_vectors = tangent_vectors
-
-
-    def calculate_bend_direction(self):
-        """
-        Determines the bend direction ('up' or 'down') based on the position of the bend's center and edges.
-        """
-        # Ensure that the face has the necessary attributes
-        if self.surface_type == "Cylindrical" and self.bend_center:
-            edge_positions = []
-
-            # Calculate the center of mass (or centroid) for each edge
-            for edge in self.edges:
-                props = GProp_GProps()
-                brepgprop.LinearProperties(edge, props)  # Get the properties of the edge
-                center_of_mass = props.CentreOfMass()  # Get the center of mass (centroid)
-                edge_positions.append(center_of_mass)
-                
-            # Compute the average position of all edges
-            average_position = sum([pos.Z() for pos in edge_positions]) / len(edge_positions)
-
-            # Compare the average position with the bend center's position to determine the bend direction
-            if average_position > self.bend_center.Z():
-                self.bend_dir = "up"
-            else:
-                self.bend_dir = "down"
-
-    def calculate_bend_center(self):
-        """
-        Calculate the bend center for a cylindrical face.
-        Args:
-            bend_face (TopoDS_Face): The face that represents the bend.
-
-        Returns:
-            gp_Pnt: The calculated bend center point.
-        """
-        # Create an adaptor for the surface of the face
-        surface_adaptor = BRepAdaptor_Surface(self.face)
-        
-        # Check if the surface is cylindrical
-        if surface_adaptor.GetType() == GeomAbs_Cylinder:
-            # Extract the cylinder from the surface
-            cylinder = surface_adaptor.Cylinder()
-            # Get the center of the cylinder
-            self.bend_center = cylinder.Location()
-            
-        else:
-            raise ValueError("The provided face is not cylindrical, cannot calculate bend center.")
-
-    def calculate_normal(self):
-        """Get the normal vector of the surface at a given point."""
-        surf = BRepAdaptor_Surface(self.face)
-        if surf.GetType() == GeomAbs_Plane:
-            gp_pln = surf.Plane()
-            self.axis =  gp_pln.Axis()
-        elif surf.GetType() == GeomAbs_Cylinder:
-            gp_cyl = surf.Cylinder()
-            self.axis =  gp_cyl.Axis()
-        else:
-            self.axis = None
-            
-def calculate_bend_angle(node1, node2, thickness):
+def analyze_edges_and_vertices(node):
     """
-    Calculate the bend angle between two nodes, one representing a flat surface and the other a cylindrical surface.
+    Analyzes the edges and vertices of the face and stores them in the node.
+    """
+    # Analyze edges
+    exp_edge = TopExp_Explorer(node.face, TopAbs_EDGE)
+    while exp_edge.More():
+        edge = topods.Edge(exp_edge.Current())
+        node.edges.append(edge)
+        exp_edge.Next()
+
+    # Analyze vertices
+    exp_vertex = TopExp_Explorer(node.face, TopAbs_VERTEX)
+    while exp_vertex.More():
+        vertex = topods.Vertex(exp_vertex.Current())
+        node.vertices.append(vertex)
+        exp_vertex.Next()
+
+def analyze_surface_type(node):
+    """
+    Determines whether the face is planar or cylindrical.
+    """
+    surf = BRepAdaptor_Surface(node.face)
+    surf_type = surf.GetType()
+
+    if surf_type == 0:  # Flat face (plane)
+        node.surface_type = "Flat"
+    elif surf_type == 1:  # Cylindrical face (typically a bend)
+        node.surface_type = "Cylindrical"
+    else:
+        node.surface_type = "Unknown"
+
+def track_vertices(node, transformation=None):
+    """
+    Function to track the vertices of the bend node's face.
+    Vertices are stored in the vertexDict before and after bending.
     
     Args:
-        node1: The first node (expected to be flat).
-        node2: The second node (expected to be cylindrical).
-        thickness: The thickness of the sheet metal.
+        transformation (gp_Trsf): The transformation (unfolding) to be applied to vertices.
+    """
+    for vertex in node.vertices:
+        original_position = BRep_Tool.Pnt(vertex)  # Original position using BRep_Tool_Pnt
+        
+        # Apply transformation (e.g., unfolding) if provided
+        if transformation:
+            unfolded_position = gp_Pnt(original_position.X(), original_position.Y(), original_position.Z())
+            unfolded_position.Transform(transformation)  # Apply the transformation
+        else:
+            unfolded_position = original_position  # No transformation applied yet
+
+        # Store the original and unfolded positions in vertexDict
+        node.vertexDict[vertex] = (original_position, unfolded_position)
+    
+
+def calculate_tangent_vectors(node):
+    """
+    Calculate tangent vectors for smooth unfolding at the bend.
+    Tangent vectors are based on the cross-product of radial vectors.
+    """
+    tangent_vectors = []
+    # Assuming we have two vertices connected by an edge, calculate tangents
+    if len(node.edges) > 0 and len(node.vertices) >= 2:
+        for edge in node.edges:
+            # Calculate tangent using vertices connected by the edge
+            vertex1 = node.vertices[0]
+            vertex2 = node.vertices[1]
+            tangent = gp_Vec(BRep_Tool.Pnt(vertex1), BRep_Tool.Pnt(vertex2)).Normalized()
+            tangent_vectors.append(tangent)
+
+    node.tangent_vectors = tangent_vectors
+
+
+def calculate_bend_direction(node):
+    """
+    Determines the bend direction ('up' or 'down') based on the position of the bend's center and edges.
+    """
+    # Ensure that the face has the necessary attributes
+    if node.surface_type == "Cylindrical" and node.bend_center:
+        edge_positions = []
+
+        # Calculate the center of mass (or centroid) for each edge
+        for edge in node.edges:
+            props = GProp_GProps()
+            brepgprop.LinearProperties(edge, props)  # Get the properties of the edge
+            center_of_mass = props.CentreOfMass()  # Get the center of mass (centroid)
+            edge_positions.append(center_of_mass)
+            
+        # Compute the average position of all edges
+        average_position = sum([pos.Z() for pos in edge_positions]) / len(edge_positions)
+
+        # Compare the average position with the bend center's position to determine the bend direction
+        if average_position > node.bend_center.Z():
+            node.bend_dir = "up"
+        else:
+            node.bend_dir = "down"
+
+def calculate_bend_center(node):
+    """
+    Calculate the bend center for a cylindrical face.
+    Args:
+        bend_face (TopoDS_Face): The face that represents the bend.
 
     Returns:
-        float: The calculated bend angle.
+        gp_Pnt: The calculated bend center point.
     """
+    # Create an adaptor for the surface of the face
+    surface_adaptor = BRepAdaptor_Surface(node.face)
+    
+    # Check if the surface is cylindrical
+    if surface_adaptor.GetType() == GeomAbs_Cylinder:
+        # Extract the cylinder from the surface
+        cylinder = surface_adaptor.Cylinder()
+        # Get the center of the cylinder
+        node.bend_center = cylinder.Location()
+        
+    else:
+        raise ValueError("The provided face is not cylindrical, cannot calculate bend center.")
+
+def calculate_normal(node):
+    """Get the normal vector of the surface at a given point."""
+    surf = BRepAdaptor_Surface(node.face)
+    if surf.GetType() == GeomAbs_Plane:
+        gp_pln = surf.Plane()
+        node.axis =  gp_pln.Axis()
+    elif surf.GetType() == GeomAbs_Cylinder:
+        gp_cyl = surf.Cylinder()
+        node.axis =  gp_cyl.Axis()
+    else:
+        node.axis = None
+        
+def calculate_bend_angle(node1, node2, thickness):
+
         # Ensure both bend center and axis are already populated
     if not node2.bend_center or not node2.axis:
         raise ValueError("Bend center or axis is missing")
     P_node = node1  # Assuming node1 is the flat node
     P_edge = P_node.edges[0]  # We need to get the edge from the flat node (assuming first edge for now)
     the_face = node2.face  # Assuming node2 is the cylindrical node
-    
+
     s_Axis = node2.axis  # Axis of the cylindrical surface
     s_Center = node2.bend_center  # Center of the cylindrical surface
 
