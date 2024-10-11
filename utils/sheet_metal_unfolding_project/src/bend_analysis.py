@@ -119,9 +119,9 @@ def calculate_bend_direction(node):
 
         # Compare the average position with the bend center's position to determine the bend direction
         if average_position > node.bend_center.Z():
-            node.bend_dir = "up"
-        else:
             node.bend_dir = "down"
+        else:
+            node.bend_dir = "up"
 
 def calculate_bend_center(node):
     """

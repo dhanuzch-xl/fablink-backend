@@ -15,6 +15,7 @@ from OCC.Core.TCollection import TCollection_ExtendedString
 #custom libraries 
 from step_processor import find_faces_with_thickness, process_faces_connected_to_base,display_hierarchy
 import bend_analysis
+from transform_node import align_box_root_to_z_axis
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Process a STEP file to find faces with specified thickness.')
     parser.add_argument('step_file', type=str, help='Path to the STEP file')
@@ -50,8 +51,7 @@ def display_cad(shape, root_node, display):
     - display: The OCC viewer display object.
     """
     # Display the shape
-    ais_shape = display.DisplayShape(shape, update=False)
-
+    #ais_shape = display.DisplayShape(shape, update=False)
     # Define colors for different attributes
     vertex_color = Quantity_Color(0.0, 0.0, 1.0, Quantity_TOC_RGB)  # Blue for vertices
     tangent_vector_color = Quantity_Color(0.0, 1.0, 0.0, Quantity_TOC_RGB)  # Green for tangent vectors
@@ -173,6 +173,9 @@ if __name__ == "__main__":
     
     # build_tree out of shape
     faces, root_node = build_tree(shape,thickness,min_area)
+
+    # transform face
+    align_box_root_to_z_axis(root_node)
 
     #process each face in the tree
     traverse_and_process_tree(root_node)
