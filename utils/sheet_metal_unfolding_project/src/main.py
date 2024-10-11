@@ -9,13 +9,16 @@ from OCC.Core.Quantity import Quantity_Color, Quantity_TOC_RGB
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.AIS import AIS_Shape
 from OCC.Core.BRep import BRep_Tool
-from OCC.Core.AIS import AIS_Shape, AIS_TextLabel
-from OCC.Core.TCollection import TCollection_ExtendedString
+from OCC.Core.AIS import AIS_Shape
 
 #custom libraries 
 from step_processor import find_faces_with_thickness, process_faces_connected_to_base,display_hierarchy
 import bend_analysis
-from transform_node import align_box_root_to_z_axis
+from transform_node import align_box_root_to_z_axis, unwrap_cylindrical_face
+
+
+
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Process a STEP file to find faces with specified thickness.')
     parser.add_argument('step_file', type=str, help='Path to the STEP file')
@@ -174,8 +177,12 @@ if __name__ == "__main__":
     # build_tree out of shape
     faces, root_node = build_tree(shape,thickness,min_area)
 
+
     # transform face
     align_box_root_to_z_axis(root_node)
+    
+    #uwrap
+    unwrap_cylindrical_face(root_node)
 
     #process each face in the tree
     traverse_and_process_tree(root_node)
