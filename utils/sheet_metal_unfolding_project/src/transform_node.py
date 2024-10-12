@@ -5,6 +5,7 @@ from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
 import math
 from OCC.Core.BRepTools import breptools
+from OCC.Core.GeomAbs import GeomAbs_BSplineSurface
 
 def apply_rotation_to_node_and_children(node, transformation):
     """
@@ -52,24 +53,10 @@ from OCC.Core.gp import gp_Vec, gp_Trsf, gp_Ax1, gp_Dir, gp_Pnt
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 from math import acos
 from OCC.Core.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane
-
-
-
 from OCC.Core.gp import gp_Vec, gp_Dir
 from math import acos
+from face_operations import get_face_normal
 
-def get_face_normal(face):
-    """Get the normal vector of the surface at a given point."""
-    surf = BRepAdaptor_Surface(face)
-    if surf.GetType() == GeomAbs_Plane:
-        gp_pln = surf.Plane()
-        axis =  gp_pln.Axis()
-    elif surf.GetType() == GeomAbs_Cylinder:
-        gp_cyl = surf.Cylinder()
-        axis =  gp_cyl.Axis()
-    else:
-        axis = None
-    return axis.Direction()  # Returns gp_Dir
 
 def calculate_rotation_to_align_with_z(normal_vector):
     """
@@ -113,7 +100,6 @@ def align_box_root_to_z_axis(root_node):
     """
     # Step 1: Get the normal vector of the root node's face
     root_face_normal = get_face_normal(root_node.face)
-
     # Step 2: Calculate the rotation transformation to align the normal to Z-axis
     angle, rotation_axis = calculate_rotation_to_align_with_z(root_face_normal)
 
@@ -220,7 +206,78 @@ def unwrap_cylindrical_face(node):
         # Step 14: Replace the cylindrical face with the fully transformed planar face
         node.face = transformed_planar_face
         node.surface_type = "Planar"  # Mark the node as planar
-
+        node.bend_angle = math.degrees(angular_span)
     # Recursively apply the same operation to all child nodes
     for child in node.children:
         unwrap_cylindrical_face(child)
+
+
+def unwrap_bspline_face(node):
+    """
+    Unwrap a BSpline face into a flat face, calculate the transformation (translation + rotation) 
+    between the centroid of the BSpline face and the unwrapped planar face, and apply that transformation.
+    
+    Args:
+        node (FaceNode): The node containing the BSpline face to unwrap.
+    
+    Returns:
+        None: The function modifies the node's face directly.
+    """
+    # Step 1: Identify the surface type
+    surface_adaptor = BRepAdaptor_Surface(node.face)
+    surface_type = surface_adaptor.GetType()
+
+    if surface_type == GeomAbs_BSplineSurface:
+        print('Unwrapping BSpline surface...')
+        
+        # Step 2: Extract the BSpline surface and its properties
+        bspline_surface = surface_adaptor.Surface().BSplineSurface()
+        u_degree = bspline_surface.UDegree()
+        v_degree = bspline_surface.VDegree()
+        control_points = bspline_surface.Poles()
+        u_knots = bspline_surface.UKnots()
+        v_knots = bspline_surface.VKnots()
+
+        # Step 3: Get the parametric bounds of the BSpline surface
+        u_min, u_max, v_min, v_max = breptools.UVBounds(node.face)
+
+        # Step 4: Generate unwrapped points in 2D (flatten in parametric space)
+        points_2d = []
+        for u in u_knots:
+            for v in v_knots:
+                pnt_3d = bspline_surface.Value(u, v)  # Get 3D point on surface
+                points_2d.append(gp_Pnt2d(u, v))  # Flattened in U, V space
+
+        # Step 5: Create edges for the unwrapped BSpline face (you might need to interpolate between points)
+        edges = []
+        for i in range(len(points_2d) - 1):
+            p1 = gp_Pnt(points_2d[i].X(), points_2d[i].Y(), v_min)  # Bottom-left
+            p2 = gp_Pnt(points_2d[i + 1].X(), points_2d[i + 1].Y(), v_min)  # Bottom-right
+            edge = BRepBuilderAPI_MakeEdge(p1, p2).Edge()
+            edges.append(edge)
+
+        # Step 6: Create the wire (closed loop of edges) for the planar face
+        wire = BRepBuilderAPI_MakeWire(*edges).Wire()
+
+        # Step 7: Create the planar face from the wire
+        planar_face = BRepBuilderAPI_MakeFace(wire).Face()
+
+        # Step 8: Calculate centroid and normal of planar face (similarly to your cylindrical case)
+        props = GProp_GProps()
+        brepgprop_SurfaceProperties(planar_face, props)
+        planar_centroid = props.CentreOfMass()
+
+        # Step 9: Calculate the rotation and translation transformations (if needed)
+        # For BSpline surfaces, rotation might not be as straightforward as cylindrical, so you can simplify
+        # to a translation only if necessary or apply a more complex surface alignment technique.
+
+        # Step 10: Replace the BSpline face with the transformed planar face
+        node.face = planar_face
+        node.surface_type = "Planar"  # Mark the node as planar
+
+    # Recursively apply the same operation to all child nodes
+    for child in node.children:
+        unwrap_bspline_face(child)
+
+
+

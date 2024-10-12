@@ -1,6 +1,9 @@
 import os
 import argparse
-from OCC.Extend.DataExchange import read_step_file
+from OCC.Core.STEPControl import STEPControl_Reader
+from OCC.Core.IFSelect import IFSelect_RetDone, IFSelect_ItemsByEntity
+from OCC.Extend.TopologyUtils import TopologyExplorer
+
 #imports for cad viewer
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
@@ -12,10 +15,12 @@ from OCC.Core.BRep import BRep_Tool
 from OCC.Core.AIS import AIS_Shape
 
 #custom libraries 
-from step_processor import find_faces_with_thickness, process_faces_connected_to_base,display_hierarchy
+from face_operations import find_faces_with_thickness
+from step_processor import  process_faces_connected_to_base,display_hierarchy
 import bend_analysis
 from transform_node import align_box_root_to_z_axis, unwrap_cylindrical_face
 
+debug_identified_faces = False
 
 
 
@@ -28,13 +33,18 @@ def parse_arguments():
 
 def build_tree(shape,thickness,min_area):
     try:
-
+        # Collect face data in the first pass, including their areas
+        all_faces = TopologyExplorer(shape).faces()
         # Find the faces with the specified thickness
-        pairs = find_faces_with_thickness(shape, thickness)
+        pairs = find_faces_with_thickness(all_faces, thickness,min_area)
+        if debug_identified_faces:
+            first_elements = [x[0] for x in pairs]
+            display, start_display, add_menu, add_function_to_menu = init_display()
+            display_cad(display,faces=first_elements,shape=shape)
+            start_display()
 
         #root_face_node,faces = process_parallel_faces_with_hierarchy(pairs)
-        faces,root_node = process_faces_connected_to_base(pairs)
-
+        faces,root_node = process_faces_connected_to_base(pairs,thickness)
         # Display the hierarchy
         display_hierarchy(root_node)
 
@@ -43,7 +53,7 @@ def build_tree(shape,thickness,min_area):
         print(f"An error occurred during building tree: {str(e)}")
         return None, None
 
-def display_cad(shape, root_node, display):
+def display_cad(display,faces=None, shape=None, root_node=None):
     """
     Display the CAD shape and node properties (tangent vectors, bend centers, etc.) 
     recursively in the viewer by traversing the node hierarchy.
@@ -53,8 +63,7 @@ def display_cad(shape, root_node, display):
     - root_node: The root FaceNode object, which has children to traverse.
     - display: The OCC viewer display object.
     """
-    # Display the shape
-    #ais_shape = display.DisplayShape(shape, update=False)
+
     # Define colors for different attributes
     vertex_color = Quantity_Color(0.0, 0.0, 1.0, Quantity_TOC_RGB)  # Blue for vertices
     tangent_vector_color = Quantity_Color(0.0, 1.0, 0.0, Quantity_TOC_RGB)  # Green for tangent vectors
@@ -117,12 +126,33 @@ def display_cad(shape, root_node, display):
                 center_pt = gp_Pnt(node.bend_center.X(), node.bend_center.Y(), node.bend_center.Z() + 5)  # Offset the text position for visibility
                 display.DisplayMessage(center_pt, node.bend_dir, message_color=text_color)  # Display the bend direction text
 
+            if node.bend_angle:
+                center_pt = gp_Pnt(node.bend_center.X()+10, node.bend_center.Y()+10, node.bend_center.Z() + 15)  # Offset the text position for visibility
+                display.DisplayMessage(center_pt, str(node.bend_angle), message_color=text_color)  # Display the bend direction text
         # Traverse all child nodes recursively
         for child in node.children:
             traverse_and_display(child)
-
+    
+    # Recursive function to traverse nodes and display properties
+    def display_faces(node):
+        # Highlight the current face in red (optional)
+        for face in faces:
+            ais_face = AIS_Shape(face)
+            display.Context.Display(ais_face, False)
+            display.Context.SetColor(ais_face, Quantity_Color(1.0, 0.0, 0.0, Quantity_TOC_RGB), False)
+            display.Context.SetTransparency(ais_face, 0.0, False) 
+    
+    # Display the shape
+    if shape:
+        ais_shape = display.DisplayShape(shape, update=False)
+    
     # Start the recursive traversal from the root node
-    traverse_and_display(root_node)
+    if root_node:
+        traverse_and_display(root_node)
+    
+    # display faces
+    if faces:
+        display_faces(faces)
 
     # Set the view and display the updated scene
     display.View_Iso()
@@ -145,7 +175,7 @@ def process_face_node(node):
         bend_analysis.calculate_bend_center(node)  # Call to calculate the bend center
         bend_analysis.calculate_bend_direction(node)
         bend_analysis.calculate_tangent_vectors(node)  # Calculate tangent vectors for unfolding    
-    
+        
     # Further updates for axis, bend center, inner radius, etc.
     node.processed = True      # Mark this node as processed
 
@@ -163,26 +193,54 @@ def traverse_and_process_tree(node):
     # Process all child nodes
     for child in node.children:
         traverse_and_process_tree(child)
+    find_bend_angles(root_node)    
 
+def find_bend_angles(node):
+    """
+    Recursively finding bend angles.
+    """
+    print('finding bend angles')
+    if node is None or not node.processed:
+        return
+    # Process all child nodes for bending angle
+    for child in node.children:
+        bend_analysis.calculate_bend_angle(node,child)
+        find_bend_angles(child)
+
+def read_my_step_file(filename):
+    """read the STEP file and returns a compound"""
+    step_reader = STEPControl_Reader()
+    status = step_reader.ReadFile(filename)
+
+    if status == IFSelect_RetDone:  # check status
+        failsonly = False
+        step_reader.PrintCheckLoad(failsonly, IFSelect_ItemsByEntity)
+        step_reader.PrintCheckTransfer(failsonly, IFSelect_ItemsByEntity)
+        step_reader.TransferRoot(1)
+        a_shape = step_reader.Shape(1)
+    else:
+        print("Error: can't read file.")
+        return
+    return a_shape
 if __name__ == "__main__":
     args = parse_arguments()
     step_filename = args.step_file
     thickness = args.thickness
-    min_area = 300.0
+    min_area = 10.0
     cad_view=True
     # Read the STEP file
     print(f"Reading STEP file: {step_filename}")
-    shape = read_step_file(step_filename)
+    shape = read_my_step_file(step_filename)
     
     # build_tree out of shape
     faces, root_node = build_tree(shape,thickness,min_area)
 
 
     # transform face
-    align_box_root_to_z_axis(root_node)
+    #align_box_root_to_z_axis(root_node)
     
     #uwrap
-    unwrap_cylindrical_face(root_node)
+    #unwrap_cylindrical_face(root_node)
 
     #process each face in the tree
     traverse_and_process_tree(root_node)
@@ -191,5 +249,5 @@ if __name__ == "__main__":
     if cad_view:
         # Initialize the 3D display
         display, start_display, add_menu, add_function_to_menu = init_display()
-        display_cad(shape, root_node,display)
+        display_cad(display,root_node=root_node, shape= shape)
         start_display()

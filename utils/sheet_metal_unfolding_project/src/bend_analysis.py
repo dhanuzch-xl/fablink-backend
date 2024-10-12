@@ -157,11 +157,11 @@ def calculate_normal(node):
     else:
         node.axis = None
         
-def calculate_bend_angle(node1, node2, thickness):
+def calculate_bend_angle(node1, node2):
 
         # Ensure both bend center and axis are already populated
     if not node2.bend_center or not node2.axis:
-        raise ValueError("Bend center or axis is missing")
+        return
     P_node = node1  # Assuming node1 is the flat node
     P_edge = P_node.edges[0]  # We need to get the edge from the flat node (assuming first edge for now)
     the_face = node2.face  # Assuming node2 is the cylindrical node
@@ -227,13 +227,13 @@ def calculate_bend_angle(node1, node2, thickness):
         if node2.bend_dir == "up":
             inner_radius = radius
         else:
-            inner_radius = radius - thickness
+            inner_radius = radius - node2.thickness
 
         node2.inner_radius = inner_radius
 
         # Calculate the k-factor and translation length
-        k_factor = calculate_k_factor(inner_radius, thickness)
-        node2.translation_length = (inner_radius + k_factor * thickness) * bend_angle
+        k_factor = calculate_k_factor(inner_radius, node2.thickness)
+        node2.translation_length = (inner_radius + k_factor * node2.thickness) * bend_angle
         return bend_angle, node2.bend_dir
 
     else:
