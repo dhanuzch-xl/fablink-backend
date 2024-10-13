@@ -1,4 +1,7 @@
 
+To run
+python src/main.py '/home/dhanuzch/meher-web-view/models/WP-13.step' -t 2
+
 ### **Project Directory Structure:**
 
 ```

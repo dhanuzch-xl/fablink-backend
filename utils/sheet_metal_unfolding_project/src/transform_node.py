@@ -5,6 +5,8 @@ from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
 import math
 from OCC.Core.BRepTools import breptools
+from OCC.Core.BRep import BRep_Tool
+
 from OCC.Core.GeomAbs import GeomAbs_BSplineSurface
 
 def apply_rotation_to_node_and_children(node, transformation):
@@ -114,7 +116,7 @@ def align_box_root_to_z_axis(root_node):
     apply_rotation_to_node_and_children(root_node, transformation)
 
 from OCC.Core.GProp import GProp_GProps
-from OCC.Core.BRepGProp import brepgprop_SurfaceProperties
+from OCC.Core.BRepGProp import brepgprop
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Trsf, gp_Dir, gp_Ax1, gp_Quaternion
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 import math
@@ -150,8 +152,6 @@ def unwrap_cylindrical_face(node):
         # Step 4: Get the parametric bounds of the cylindrical face
         u_min, u_max, v_min, v_max = breptools.UVBounds(node.face)
 
-        # Step 5: Calculate unwrapped length (circumference = 2 * pi * radius)
-        # Step 5: Calculate the unwrapped length based on the angular span of the cylindrical face
         angular_span = u_max - u_min  # Angular extent in radians
 
         # The unwrapped length for the cylindrical face
@@ -176,7 +176,7 @@ def unwrap_cylindrical_face(node):
 
         # Step 9: Calculate the centroid of the newly unwrapped planar face
         props = GProp_GProps()
-        brepgprop_SurfaceProperties(planar_face, props)
+        brepgprop.SurfaceProperties(planar_face, props)
         planar_centroid = props.CentreOfMass()
 
         # Step 10: Calculate the normal vectors of the cylindrical and planar faces
@@ -206,7 +206,6 @@ def unwrap_cylindrical_face(node):
         # Step 14: Replace the cylindrical face with the fully transformed planar face
         node.face = transformed_planar_face
         node.surface_type = "Planar"  # Mark the node as planar
-        node.bend_angle = math.degrees(angular_span)
     # Recursively apply the same operation to all child nodes
     for child in node.children:
         unwrap_cylindrical_face(child)
@@ -264,7 +263,7 @@ def unwrap_bspline_face(node):
 
         # Step 8: Calculate centroid and normal of planar face (similarly to your cylindrical case)
         props = GProp_GProps()
-        brepgprop_SurfaceProperties(planar_face, props)
+        brepgprop.SurfaceProperties(planar_face, props)
         planar_centroid = props.CentreOfMass()
 
         # Step 9: Calculate the rotation and translation transformations (if needed)

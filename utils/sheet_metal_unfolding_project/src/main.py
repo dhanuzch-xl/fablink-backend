@@ -15,7 +15,7 @@ from OCC.Core.BRep import BRep_Tool
 from OCC.Core.AIS import AIS_Shape
 
 #custom libraries 
-from face_operations import find_faces_with_thickness
+from face_operations import find_faces_with_thickness, get_face_normal
 from step_processor import  process_faces_connected_to_base,display_hierarchy
 import bend_analysis
 from transform_node import align_box_root_to_z_axis, unwrap_cylindrical_face
@@ -81,7 +81,7 @@ def display_cad(display,faces=None, shape=None, root_node=None):
         # Highlight the current face in red (optional)
         ais_face = AIS_Shape(node.face)
         display.Context.Display(ais_face, False)
-        display.Context.SetColor(ais_face, Quantity_Color(1.0, 0.0, 0.0, Quantity_TOC_RGB), False)
+        display.Context.SetColor(ais_face, Quantity_Color(0.5, 0.5, 0.5, Quantity_TOC_RGB), False)
         display.Context.SetTransparency(ais_face, 0.0, False)
 
         # Display vertices as small spheres with blue color
@@ -127,7 +127,7 @@ def display_cad(display,faces=None, shape=None, root_node=None):
                 display.DisplayMessage(center_pt, node.bend_dir, message_color=text_color)  # Display the bend direction text
 
             if node.bend_angle:
-                center_pt = gp_Pnt(node.bend_center.X()+10, node.bend_center.Y()+10, node.bend_center.Z() + 15)  # Offset the text position for visibility
+                center_pt = gp_Pnt(node.bend_center.X()+10, node.bend_center.Y()+10, node.bend_center.Z())  # Offset the text position for visibility
                 display.DisplayMessage(center_pt, str(node.bend_angle), message_color=text_color)  # Display the bend direction text
         # Traverse all child nodes recursively
         for child in node.children:
@@ -169,7 +169,7 @@ def process_face_node(node):
     """
     bend_analysis.analyze_surface_type(node)  # Update surface type (e.g., planar, cylindrical)
     bend_analysis.analyze_edges_and_vertices(node)  # Analyze both edges and vertices
-    bend_analysis.calculate_normal(node)
+    node.axis = get_face_normal(node.face)
     # If the node represents a cylindrical surface, calculate the bend center
     if node.surface_type == "Cylindrical":
         bend_analysis.calculate_bend_center(node)  # Call to calculate the bend center
@@ -195,16 +195,16 @@ def traverse_and_process_tree(node):
         traverse_and_process_tree(child)
     find_bend_angles(root_node)    
 
-def find_bend_angles(node):
+def find_bend_angles(root_node):
     """
     Recursively finding bend angles.
     """
-    print('finding bend angles')
-    if node is None or not node.processed:
+    if root_node is None or not root_node.processed:
         return
     # Process all child nodes for bending angle
-    for child in node.children:
-        bend_analysis.calculate_bend_angle(node,child)
+    for child in root_node.children:
+        if not child.bend_angle:
+            bend_analysis.calculate_bend_angle(child)
         find_bend_angles(child)
 
 def read_my_step_file(filename):
@@ -237,17 +237,16 @@ if __name__ == "__main__":
 
 
     # transform face
-    #align_box_root_to_z_axis(root_node)
-    
-    #uwrap
-    #unwrap_cylindrical_face(root_node)
+    align_box_root_to_z_axis(root_node)
 
     #process each face in the tree
     traverse_and_process_tree(root_node)
 
+    #uwrap
+    #unwrap_cylindrical_face(root_node)
 
     if cad_view:
         # Initialize the 3D display
         display, start_display, add_menu, add_function_to_menu = init_display()
-        display_cad(display,root_node=root_node, shape= shape)
+        display_cad(display,root_node=root_node)
         start_display()

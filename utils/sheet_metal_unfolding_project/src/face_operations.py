@@ -75,7 +75,6 @@ def get_face_normal(face):
     surf = BRepAdaptor_Surface(face)
     surf_type = surf.GetType()
     
-    print(f"Surface type: {surf_type}")
     
     if surf_type == GeomAbs_Plane:
         # Plane surface: return the normal vector from the plane's axis
@@ -268,7 +267,6 @@ def find_faces_with_thickness(all_faces, thickness, min_area=300, tolerance=1e-6
                     #ToDo:find_top_face
                     plates.append((data["face"],other_data["face"]))
                     data["processed"] = other_data["processed"] = True
-                    print(f"Found face pair with thickness {thickness}: Faces {i+1} and {j+1}, Area: {data['area']}")
                     break
 
     if not plates:

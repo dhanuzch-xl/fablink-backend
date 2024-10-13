@@ -40,6 +40,7 @@ class FaceNode:
     """
     def __init__(self, face):
         self.face = face
+        self.face_id = None
         self.children = []
         self.edges = []  # Edges connected to the face
         self.vertices = []  # Vertices connected to the face
@@ -54,7 +55,7 @@ class FaceNode:
         self.vertexDict = {}  # Dictionary to track vertex positions before and after bending
         self.bend_dir = None # Bending direction up or down
         self.thickness = None # face thickness
-        
+        self.bendlinesDict ={}
     def add_child(self, child_face):
         """Add a child to this face node."""
         child_node = FaceNode(child_face)
@@ -214,11 +215,9 @@ def export_faces_to_dxf(faces, output_folder, thickness, min_area):
         area = props.Mass()
 
         output_filename = os.path.join(output_folder, f"face_{i}.dxf")
-        #print(f"Exporting face {i + 1} to DXF file: {output_filename}")
         export_face_to_dxf(face, output_filename)
         # else:
         #     continue
-            #print(f"Skipping face {i + 1} due to area below the minimum threshold or because it's a rectangle")
    
 def export_image_with_highlighted_faces(shape, faces_to_highlight, output_filename, display, fit_all=True):
     """
@@ -351,7 +350,6 @@ def process_faces_connected_to_base(pairs, thickness):
             face1, face2 = pair
             
             # Debugging: Log the face pair being processed
-            print(f"Processing pair: {get_face_id(face1)} and {get_face_id(face2)}")
             # Check if face1 is already processed
             
             if get_face_id(face1) not in processed_faces and check_connection(parent_face, face1):
@@ -376,7 +374,6 @@ def process_faces_connected_to_base(pairs, thickness):
                 face_to_node_map[get_face_id(face2)] = child_node
             else:
                 # Debugging: Track which pairs are being requeued
-                print(f"Requeueing pair: {get_face_id(face1)} and {get_face_id(face2)}")
 
                 # Neither face is connected to parent_face, move the pair to queue2 for future processing
                 queue2.append(pair)
@@ -424,28 +421,6 @@ def bounding_boxes_intersect(bbox1, bbox2, tolerance=1e-6):
 
     return expanded_bbox1.IsOut(bbox2) == False
 
-# def check_connection_optimized(face1, face2, tolerance=1e-6):
-#     """
-#     Optimized check if two faces are connected using bounding box intersection and optional detailed checks.
-
-#     Args:
-#         face1 (topods.Face): The first face.
-#         face2 (topods.Face): The second face.
-#         tolerance (float): Tolerance for bounding box and edge comparison.
-
-#     Returns:
-#         bool: True if the faces are connected, False otherwise.
-#     """
-#     # Get the bounding boxes of both faces
-#     bbox1 = get_bounding_box(face1)
-#     bbox2 = get_bounding_box(face2)
-
-#     # Check if the bounding boxes intersect
-#     if bounding_boxes_intersect(bbox1, bbox2, tolerance):
-#         # If the bounding boxes intersect, check shared edges or proximity
-#         return True#check_for_shared_edge(face1, face2) or check_proximity(face1, face2)
-
-#     return False
 
 
 # Global dictionary to map faces to IDs
@@ -522,6 +497,7 @@ def check_connection_optimized(face1, face2, tolerance=1e-6, num_samples_u=5, nu
                 return True
 
     return False
+
 def sample_face_points(face, num_samples_u=5, num_samples_v=5):
     """
     Sample points across a surface for proximity checking.
