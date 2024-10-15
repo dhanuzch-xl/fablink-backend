@@ -13,13 +13,14 @@ from OCC.Display.SimpleGui import init_display
 from OCC.Core.AIS import AIS_Shape
 from OCC.Core.BRep import BRep_Tool
 from OCC.Core.AIS import AIS_Shape
+from OCC.Core.TopoDS import TopoDS_Vertex
 
 #custom libraries 
 from face_operations import find_faces_with_thickness, get_face_normal
 from step_processor import  process_faces_connected_to_base,display_hierarchy
 import bend_analysis
-from transform_node import align_box_root_to_z_axis, unwrap_cylindrical_face
-
+from transform_node import align_box_root_to_z_axis,unwrap_cylindrical_face
+#from unwrap import unwrap_cylindrical_face
 debug_identified_faces = False
 
 
@@ -65,6 +66,7 @@ def display_cad(display,faces=None, shape=None, root_node=None):
     """
 
     # Define colors for different attributes
+    c_vertex_color = Quantity_Color(0.0, 1.0, 0.0, Quantity_TOC_RGB)  # Blue for vertices
     vertex_color = Quantity_Color(0.0, 0.0, 1.0, Quantity_TOC_RGB)  # Blue for vertices
     tangent_vector_color = Quantity_Color(0.0, 1.0, 0.0, Quantity_TOC_RGB)  # Green for tangent vectors
     bend_center_color = Quantity_Color(1.0, 0.0, 0.0, Quantity_TOC_RGB)  # Red for bend center
@@ -84,15 +86,35 @@ def display_cad(display,faces=None, shape=None, root_node=None):
         display.Context.SetColor(ais_face, Quantity_Color(0.5, 0.5, 0.5, Quantity_TOC_RGB), False)
         display.Context.SetTransparency(ais_face, 0.0, False)
 
-        # Display vertices as small spheres with blue color
-        for vertex in node.vertices:
-            point = BRep_Tool.Pnt(vertex)  # Get gp_Pnt from TopoDS_Vertex
-            sphere = BRepPrimAPI_MakeSphere(point, 0.5).Shape()  # 0.5 is the radius of the sphere
-            ais_sphere = AIS_Shape(sphere)  # Create an AIS_Shape to handle the shape
-            display.Context.Display(ais_sphere, False)
-            display.Context.SetColor(ais_sphere, vertex_color, False)  # Set color to blue
+        # # Display vertices as small spheres with blue color
+        # for vertex in node.vertices:
+        #     point = BRep_Tool.Pnt(vertex)  # Get gp_Pnt from TopoDS_Vertex
+        #     sphere = BRepPrimAPI_MakeSphere(point, 0.5).Shape()  # 0.5 is the radius of the sphere
+        #     ais_sphere = AIS_Shape(sphere)  # Create an AIS_Shape to handle the shape
+        #     display.Context.Display(ais_sphere, False)
+        #     display.Context.SetColor(ais_sphere, vertex_color, False)  # Set color to blue
+        
+        # Display common as small spheres with green color
+        common_vertex_pairs = node.vertexDict.get('before_unfld', [])
+        if common_vertex_pairs:
+            for vertex_pair in common_vertex_pairs:
+                vertex = vertex_pair[1]  # Retrieve the vertex information
 
-       # Display tangent vectors as arrows with green color
+                # Check if the vertex is a TopoDS_Vertex
+                if isinstance(vertex, TopoDS_Vertex):
+                    point = BRep_Tool.Pnt(vertex)  # Get gp_Pnt from TopoDS_Vertex
+                else:
+                    # Assume it's a tuple of coordinates (x, y, z)
+                    point = gp_Pnt(vertex[0], vertex[1], vertex[2])  # Create gp_Pnt from coordinates
+
+                # Create a sphere at this point
+                sphere = BRepPrimAPI_MakeSphere(point, 0.5).Shape()  # 0.5 is the radius of the sphere
+                ais_sphere = AIS_Shape(sphere)  # Create an AIS_Shape to handle the shape
+                
+                # Display the sphere on the viewer
+                display.Context.Display(ais_sphere, False)
+                display.Context.SetColor(ais_sphere, c_vertex_color, False)  # Set color
+       #Display tangent vectors as arrows with green color
         for tangent_vector in node.tangent_vectors:
             if node.bend_center:
                 start_point = gp_Pnt(node.bend_center.X(), node.bend_center.Y(), node.bend_center.Z())  # Assuming node.bend_center is a gp_Pnt
@@ -134,7 +156,7 @@ def display_cad(display,faces=None, shape=None, root_node=None):
             traverse_and_display(child)
     
     # Recursive function to traverse nodes and display properties
-    def display_faces(node):
+    def display_faces(faces):
         # Highlight the current face in red (optional)
         for face in faces:
             ais_face = AIS_Shape(face)
@@ -203,9 +225,46 @@ def find_bend_angles(root_node):
         return
     # Process all child nodes for bending angle
     for child in root_node.children:
+        get_common_vertices(root_node,child)
         if not child.bend_angle:
             bend_analysis.calculate_bend_angle(child)
         find_bend_angles(child)
+
+
+from OCC.Extend.TopologyUtils import TopologyExplorer
+from OCC.Core.BRep import BRep_Tool
+
+def get_common_vertices(parent, child, tolerance=1e-6):
+    """
+    Check if two TopoDS_Face objects share any common vertices using TopologyExplorer.
+
+    Args:
+        parent (FaceNode): The parent face node containing vertices.
+        child (FaceNode): The child face node containing vertices.
+        tolerance (float): Tolerance for proximity check.
+
+    Returns:
+        list: A list of common vertex coordinates if any common vertices exist, 
+              otherwise an empty list.
+    """
+
+    vertices1 = [BRep_Tool.Pnt(v) for v in parent.vertices]  # Get gp_Pnt from TopoDS_Vertex
+    vertices2 = [BRep_Tool.Pnt(v) for v in child.vertices]
+
+    # Compare vertices from both faces to find common points within tolerance
+    common_vertices = []
+    for point1 in vertices1:
+        for point2 in vertices2:
+            if point1.Distance(point2) <= tolerance:
+                common_vertices.append(((point1.X(), point1.Y(), point1.Z()), (point2.X(), point2.Y(), point2.Z())))
+
+    # If there are common vertices, store them in the vertexDict
+    if common_vertices:
+        if 'before_unfld' not in child.vertexDict:
+            child.vertexDict['before_unfld'] = []
+        
+        # Append the new common vertices to the existing ones
+        child.vertexDict['before_unfld'].extend(common_vertices)
 
 def read_my_step_file(filename):
     """read the STEP file and returns a compound"""
@@ -235,7 +294,6 @@ if __name__ == "__main__":
     # build_tree out of shape
     faces, root_node = build_tree(shape,thickness,min_area)
 
-
     # transform face
     align_box_root_to_z_axis(root_node)
 
@@ -243,7 +301,7 @@ if __name__ == "__main__":
     traverse_and_process_tree(root_node)
 
     #uwrap
-    #unwrap_cylindrical_face(root_node)
+    unwrap_cylindrical_face(root_node)
 
     if cad_view:
         # Initialize the 3D display

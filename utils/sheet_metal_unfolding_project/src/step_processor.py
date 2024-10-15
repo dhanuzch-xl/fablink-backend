@@ -52,7 +52,7 @@ class FaceNode:
         self.bend_center = None  # Center of the bend
         self.inner_radius = None  # Inner radius of the bend
         self.tangent_vectors = []  # Tangent vectors at the bend
-        self.vertexDict = {}  # Dictionary to track vertex positions before and after bending
+        self.vertexDict = {}  # Dictionary of common vertices between parent face and child face. (parent vertex, child vertex)
         self.bend_dir = None # Bending direction up or down
         self.thickness = None # face thickness
         self.bendlinesDict ={}
@@ -497,6 +497,7 @@ def check_connection_optimized(face1, face2, tolerance=1e-6, num_samples_u=5, nu
                 return True
 
     return False
+
 
 def sample_face_points(face, num_samples_u=5, num_samples_v=5):
     """

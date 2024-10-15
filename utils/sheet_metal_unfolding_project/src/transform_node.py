@@ -122,13 +122,10 @@ from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 import math
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire
 
-
-
-
 def unwrap_cylindrical_face(node):
     """
-    Unwrap a cylindrical face into a flat face, calculate the transformation (translation + rotation) 
-    between the centroid of the cylindrical face and the unwrapped planar face, and apply that transformation.
+    Unwrap a cylindrical face into a flat face and align it so that the common edge with the parent face is preserved
+    from the beginning by constructing the unwrapped face relative to the two common vertices.
     
     Args:
         node (FaceNode): The node containing the cylindrical face to unwrap.
@@ -142,70 +139,64 @@ def unwrap_cylindrical_face(node):
 
     if surface_type == GeomAbs_Cylinder:
         print('Unwrapping cylindrical surface...')
+        
         # Step 2: Extract cylindrical parameters (radius, height, etc.)
         cylinder = surface_adaptor.Cylinder()
         radius = cylinder.Radius()
         
-        # Step 3: Get the centroid of the cylindrical face
-        cylinder_location = cylinder.Position().Location()  # Centroid of the cylindrical face
-
-        # Step 4: Get the parametric bounds of the cylindrical face
+        # Step 3: Get the parametric bounds of the cylindrical face
         u_min, u_max, v_min, v_max = breptools.UVBounds(node.face)
-
         angular_span = u_max - u_min  # Angular extent in radians
-
-        # The unwrapped length for the cylindrical face
         length = angular_span * radius  # Arc length for the unwrapped face
-        # Step 6: Create the 4 edges (rectangular shape in 3D space)
-        p1 = gp_Pnt(0, 0, v_min)  # Bottom-left in global space
-        p2 = gp_Pnt(length, 0, v_min)  # Bottom-right in global space
-        p3 = gp_Pnt(length, 0, v_max)  # Top-right in global space
-        p4 = gp_Pnt(0, 0, v_max)  # Top-left in global space
 
-        # Create edges from these points
-        edge1 = BRepBuilderAPI_MakeEdge(p1, p2).Edge()
-        edge2 = BRepBuilderAPI_MakeEdge(p2, p3).Edge()
-        edge3 = BRepBuilderAPI_MakeEdge(p3, p4).Edge()
-        edge4 = BRepBuilderAPI_MakeEdge(p4, p1).Edge()
+        # Step 4: Get the common vertices between the cylindrical face and the parent face
+        parent_node = node
+        if parent_node and 'before_unfld' in parent_node.vertexDict:
+            common_vertices = parent_node.vertexDict['before_unfld']
+            
+            if len(common_vertices) >= 2:
+                # Use the two common vertices for reference (forming the shared edge)
+                (parent_vertex1, child_vertex1) = common_vertices[0]
+                (parent_vertex2, child_vertex2) = common_vertices[1]
+                
+                common_vertex1 = gp_Pnt(*child_vertex1)
+                common_vertex2 = gp_Pnt(*child_vertex2)
+                
+                # Step 5: Define the points of the unwrapped face relative to the common vertices
+                # The X direction represents the unwrapped length, and Z represents the vertical height (v_min to v_max)
+                
+                # # Using common_vertex1 as the reference for p1 and p4, and extending by the length
+                # p1 = gp_Pnt(common_vertex1.X(), common_vertex1.Y(), v_min)  # Bottom-left (aligned with common edge)
+                # p2 = gp_Pnt(common_vertex1.X() + length, common_vertex1.Y(), v_min)  # Bottom-right (aligned with unwrapped length)
+                
+                # # Using common_vertex2 for p3 and p4 for the vertical alignment (Z direction)
+                # p3 = gp_Pnt(common_vertex2.X() + length, common_vertex2.Y(), v_max)  # Top-right (aligned with unwrapped length)
+                # p4 = gp_Pnt(common_vertex2.X(), common_vertex2.Y(), v_max)  # Top-left (aligned with common edge)
 
-        # Step 7: Create the wire (closed loop of edges) for the planar face
-        wire = BRepBuilderAPI_MakeWire(edge1, edge2, edge3, edge4).Wire()
+                # Using common_vertex1 as the reference for p1 and p4, and extending by the length
+                p1 = gp_Pnt(common_vertex1.X(), v_min, common_vertex1.Z())  # Bottom-left (aligned with common edge)
+                p2 = gp_Pnt(common_vertex1.X() + length, v_min, common_vertex1.Z())  # Bottom-right (aligned with unwrapped length)
+                
+                # Using common_vertex2 for p3 and p4 for the vertical alignment (Z direction)
+                p3 = gp_Pnt(common_vertex2.X() + length, v_max, common_vertex2.Z())  # Top-right (aligned with unwrapped length)
+                p4 = gp_Pnt(common_vertex2.X(), v_max, common_vertex2.Z())  # Top-left (aligned with common edge)
 
-        # Step 8: Create the planar face from the wire
-        planar_face = BRepBuilderAPI_MakeFace(wire).Face()
+                # Step 6: Create edges from these points
+                edge1 = BRepBuilderAPI_MakeEdge(p1, p2).Edge()
+                edge2 = BRepBuilderAPI_MakeEdge(p2, p3).Edge()
+                edge3 = BRepBuilderAPI_MakeEdge(p3, p4).Edge()
+                edge4 = BRepBuilderAPI_MakeEdge(p4, p1).Edge()
 
-        # Step 9: Calculate the centroid of the newly unwrapped planar face
-        props = GProp_GProps()
-        brepgprop.SurfaceProperties(planar_face, props)
-        planar_centroid = props.CentreOfMass()
+                # Step 7: Create the wire (closed loop of edges) for the planar face
+                wire = BRepBuilderAPI_MakeWire(edge1, edge2, edge3, edge4).Wire()
 
-        # Step 10: Calculate the normal vectors of the cylindrical and planar faces
-        cylinder_axis = cylinder.Axis().Direction()  # Normal vector of the cylindrical face
-        planar_normal = gp_Dir(0, 0, 1)  # Assuming planar face is aligned along Z-axis initially
+                # Step 8: Create the planar face from the wire
+                planar_face = BRepBuilderAPI_MakeFace(wire).Face()
 
-        # Step 11: Calculate the rotation needed to align the planar face's normal with the cylindrical face's axis
-        # Calculate the rotation axis and angle
-        rotation_axis = planar_normal.Crossed(cylinder_axis)  # Rotation axis (cross product of normals)
-        rotation_angle = planar_normal.AngleWithRef(cylinder_axis, rotation_axis)  # Rotation angle
-        
-        # Step 12: Construct the rotation transformation
-        rotation_trsf = gp_Trsf()
-        rotation_trsf.SetRotation(gp_Ax1(planar_centroid, rotation_axis), rotation_angle)  # Rotate around planar centroid
-        
-        # Apply the rotation to the unwrapped planar face
-        rotated_planar_face = BRepBuilderAPI_Transform(planar_face, rotation_trsf, True).Shape()
-
-        # Step 13: Construct the translation transformation
-        translation_vec = gp_Vec(planar_centroid, cylinder_location)  # Translate from planar face's centroid to cylinder's centroid
-        translation_trsf = gp_Trsf()
-        translation_trsf.SetTranslation(translation_vec)
-
-        # Apply the translation to the rotated planar face
-        transformed_planar_face = BRepBuilderAPI_Transform(rotated_planar_face, translation_trsf, True).Shape()
-
-        # Step 14: Replace the cylindrical face with the fully transformed planar face
-        node.face = transformed_planar_face
-        node.surface_type = "Planar"  # Mark the node as planar
+                # Step 9: Replace the cylindrical face with the unwrapped planar face
+                node.face = planar_face
+                node.surface_type = "Planar"  # Mark the node as planar
+    
     # Recursively apply the same operation to all child nodes
     for child in node.children:
         unwrap_cylindrical_face(child)

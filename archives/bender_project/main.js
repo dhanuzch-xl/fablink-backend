@@ -10,8 +10,21 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
+
+
 // Define material and mesh (empty initially)
-const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: false });
+
+
+// Add a point light
+const pointLight = new THREE.PointLight(0xffffff, 1);  // White light, intensity 1
+pointLight.position.set(10, 10, 10);
+scene.add(pointLight);
+
+// Add ambient light
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);  // Ambient light to soften shadows
+scene.add(ambientLight);
+
 let geometry = new THREE.BoxGeometry(5, 5, 5, 10, 10, 10);
 let mesh = new THREE.Mesh(geometry, material);
 scene.add(mesh);
