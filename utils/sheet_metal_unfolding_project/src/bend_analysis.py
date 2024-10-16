@@ -269,29 +269,16 @@ def calculate_bend_angle(node):
 #     return midpoint_3d
 
 
-# def compute_mid_surface_point_planar(the_face):
-#     """
-#     Computes the centroid (geometric center) of a planar face.
+def calculate_centre_of_mass(node):
 
-#     Args:
-#         the_face (TopoDS_Face): The planar face.
+    # Create a GProp_GProps object to store the properties of the face
+    props = GProp_GProps()
 
-#     Returns:
-#         gp_Pnt: The centroid of the planar face in 3D space.
-#     """
-#     from OCC.Core.BRepGProp import brepgprop
-#     from OCC.Core.GProp import GProp_GProps
+    # Compute surface properties (like the centroid)
+    brepgprop.SurfaceProperties(node.face, props)
 
-#     # Create a GProp_GProps object to store the properties of the face
-#     props = GProp_GProps()
-
-#     # Compute surface properties (like the centroid)
-#     brepgprop.SurfaceProperties(the_face, props)
-
-#     # Return the centroid of the face
-#     centroid = props.CentreOfMass()
-
-#     return centroid
+    # Return the centroid of the face
+    node.COM = props.CentreOfMass()
 
 
 

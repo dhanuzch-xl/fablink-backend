@@ -19,8 +19,8 @@ from OCC.Core.TopoDS import TopoDS_Vertex
 from face_operations import find_faces_with_thickness, get_face_normal
 from step_processor import  process_faces_connected_to_base,display_hierarchy
 import bend_analysis
-from transform_node import align_box_root_to_z_axis,unwrap_cylindrical_face
-#from unwrap import unwrap_cylindrical_face
+from transform_node import align_box_root_to_z_axis #unwrap_cylindrical_face
+from unwrap import unfold_and_transform
 debug_identified_faces = False
 
 
@@ -98,7 +98,6 @@ def display_cad(display,faces=None, shape=None, root_node=None):
         common_vertex_pairs = node.vertexDict.get('before_unfld', [])
         if common_vertex_pairs:
             for vertex in common_vertex_pairs:
-                vertex
                 # Check if the vertex is a TopoDS_Vertex
                 if isinstance(vertex, TopoDS_Vertex):
                     point = BRep_Tool.Pnt(vertex)  # Get gp_Pnt from TopoDS_Vertex
@@ -311,6 +310,8 @@ if __name__ == "__main__":
     traverse_and_process_tree(root_node)
 
     #uwrap
+    # Example usage
+    unfold_and_transform(root_node)
     #unwrap_cylindrical_face(root_node)
 
     if cad_view:
