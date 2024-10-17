@@ -109,6 +109,7 @@ def calculate_bend_center(node):
         cylinder = surface_adaptor.Cylinder()
         # Get the center of the cylinder
         node.bend_center = cylinder.Location()
+        node.inner_radius = cylinder.Radius()
         
     else:
         raise ValueError("The provided face is not cylindrical, cannot calculate bend center.")
@@ -137,7 +138,8 @@ def calculate_centre_of_mass(node):
     brepgprop.SurfaceProperties(node.face, props)
 
     # Return the centroid of the face
-    node.COM = props.CentreOfMass()
+    com = props.CentreOfMass()
+    node.COM = [com.X(),com.Y(),com.Z()]
 
 
 

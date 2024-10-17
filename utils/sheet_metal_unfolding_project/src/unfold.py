@@ -76,7 +76,7 @@ def transform_attached_line(bend_end_vertex, new_bend_end_vertex, plate2_COM, pa
     else:
         child_direction = np.array([plate2_COM[0],plate2_COM[1],plate2_COM[2]]) - np.array([bend_end_vertex[0],bend_end_vertex[1],bend_end_vertex[2]])
 
-    if sum(child_direction):
+    if sum(child_direction)>1e-6:
         new_direction = child_direction
     else:
         new_direction = parent_direction
@@ -96,7 +96,7 @@ def transform_attached_line(bend_end_vertex, new_bend_end_vertex, plate2_COM, pa
 
 
 
-def transform_vertices(plate1_COM, bend_start, bend_end, plate2_COM, bend_radius=5, bend_angle=np.radians(45),flatten = False):
+def unfold_vertices(plate1_COM, bend_start, bend_end, plate2_COM, bend_radius=2, bend_angle= 1.570796326794896,flatten = False):
     """
     This function combines the logic of straightening the bend and transforming the attached line.
     It handles both bend and planar surfaces based on the surface_type argument.
@@ -123,55 +123,51 @@ def transform_vertices(plate1_COM, bend_start, bend_end, plate2_COM, bend_radius
 
 
 
-# Main Code
 
-plate1_COM = np.array([0, 0, 0])  
-bend_start_vertex = np.array([5, 5, 0])  
-bend_end_vertex = np.array([8, 5, 3])  
-plate2_COM = np.array([8, 2, 12])  
+# # Main Code
 
-# new_bend_end_vertex, new_direction = straighten_line(plate1_COM, bend_start_vertex, bend_end_vertex)
-
-# transformed_line_start, transformed_plate2_com = transform_attached_line(
-#     bend_end_vertex, new_bend_end_vertex, bend_end_vertex, plate2_COM, new_direction)
-
-new_bend_end_vertex, transformed_plate2_com = transform_vertices(plate1_COM, bend_start_vertex, bend_end_vertex, plate2_COM,flatten=True)
-
-# Visualize using Matplotlib
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-
-# Plot the original line before the bend
-ax.plot([plate1_COM[0], bend_start_vertex[0]], [plate1_COM[1], bend_start_vertex[1]], 
-        [plate1_COM[2], bend_start_vertex[2]], 'b-', label='Original Line')
-
-# Plot the bend segment (for reference)
-ax.plot([bend_start_vertex[0], bend_end_vertex[0]], [bend_start_vertex[1], bend_end_vertex[1]], 
-        [bend_start_vertex[2], bend_end_vertex[2]], 'r--', label='Bend (Circular)')
-
-# Plot the attached line before straightening
-ax.plot([bend_end_vertex[0], plate2_COM[0]], [bend_end_vertex[1], plate2_COM[1]], 
-        [bend_end_vertex[2], plate2_COM[2]], 'm-', label='Attached Line (Before Straightening)')
-
-# Plot the straightened line
-ax.plot([bend_start_vertex[0], new_bend_end_vertex[0]], [bend_start_vertex[1], new_bend_end_vertex[1]], 
-        [bend_start_vertex[2], new_bend_end_vertex[2]], 'g-', label='Straightened Line')
-
-# Plot the transformed attached line after straightening
-ax.plot([new_bend_end_vertex[0], transformed_plate2_com[0]], [new_bend_end_vertex[1], transformed_plate2_com[1]], 
-        [new_bend_end_vertex[2], transformed_plate2_com[2]], 'c--', label='Attached Line (After Straightening)')
+# plate1_COM = np.array([0, 0,0])  
+# bend_start_vertex = np.array([4.5,0,0])  
+# bend_end_vertex = np.array([5 ,0 , -0.5])  
+# plate2_COM = np.array([5, 0, -5])  
+# bend_radius = 2
+# bend_angle = 1.57
+# new_bend_end_vertex, transformed_plate2_com = unfold_vertices(plate1_COM, bend_start_vertex, bend_end_vertex, plate2_COM,bend_radius,bend_angle,flatten=True)
 
 
 
+# # Visualize using Matplotlib
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
 
-# Set labels
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
+# # Plot the original line before the bend
+# ax.plot([plate1_COM[0], bend_start_vertex[0]], [plate1_COM[1], bend_start_vertex[1]], 
+#         [plate1_COM[2], bend_start_vertex[2]], 'b-', label='Original Line')
 
-# Show the plot
-plt.legend()
-plt.show()
+# # Plot the bend segment (for reference)
+# ax.plot([bend_start_vertex[0], bend_end_vertex[0]], [bend_start_vertex[1], bend_end_vertex[1]], 
+#         [bend_start_vertex[2], bend_end_vertex[2]], 'r--', label='Bend (Circular)')
+
+# # Plot the attached line before straightening
+# ax.plot([bend_end_vertex[0], plate2_COM[0]], [bend_end_vertex[1], plate2_COM[1]], 
+#         [bend_end_vertex[2], plate2_COM[2]], 'm-', label='Attached Line (Before Straightening)')
+
+# # Plot the straightened line
+# ax.plot([bend_start_vertex[0], new_bend_end_vertex[0]], [bend_start_vertex[1], new_bend_end_vertex[1]], 
+#         [bend_start_vertex[2], new_bend_end_vertex[2]], 'g-', label='Straightened Line')
+
+# # Plot the transformed attached line after straightening
+# ax.plot([new_bend_end_vertex[0], transformed_plate2_com[0]], [new_bend_end_vertex[1], transformed_plate2_com[1]], 
+#         [new_bend_end_vertex[2], transformed_plate2_com[2]], 'c--', label='Attached Line (After Straightening)')
 
 
 
+
+# # Set labels
+# ax.set_xlabel('X')
+# ax.set_ylabel('Y')
+# ax.set_zlabel('Z')
+
+# # Show the plot
+# plt.legend()
+# plt.show()

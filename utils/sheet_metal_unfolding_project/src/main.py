@@ -204,9 +204,10 @@ def process_face_node(node):
     bend_analysis.analyze_surface_type(node)  # Update surface type (e.g., planar, cylindrical)
     bend_analysis.analyze_edges_and_vertices(node)  # Analyze both edges and vertices
     node.axis = get_face_normal(node.face)
+    bend_analysis.calculate_centre_of_mass(node)
     # If the node represents a cylindrical surface, calculate the bend center
     if node.surface_type == "Cylindrical":
-        bend_analysis.calculate_bend_center(node)  # Call to calculate the bend center
+        bend_analysis.calculate_bend_center(node)  # Call to calculate the bend center for now inner radius is also added in it
         bend_analysis.calculate_bend_direction(node)
         bend_analysis.calculate_tangent_vectors(node)  # Calculate tangent vectors for unfolding    
         bend_analysis.calculate_bend_angle(node)
@@ -227,42 +228,7 @@ def traverse_and_process_tree(node):
     # Process all child nodes
     for child in node.children:
         traverse_and_process_tree(child)
-        get_common_vertices(node,child)
-
-def get_common_vertices(parent, child, tolerance=1e-6):
-    if parent is None or not child.processed:
-        return
-    vertices1 = [BRep_Tool.Pnt(v) for v in parent.vertices]  # Ensure parent.vertices are valid TopoDS_Vertex
-    vertices2 = [BRep_Tool.Pnt(v) for v in child.vertices]
-
-    # Use a set to track unique common vertices
-    common_vertices_set = set()
-
-    # Compare vertices from both faces to find common points within tolerance
-    for point1 in vertices1:
-        for point2 in vertices2:
-            if point1.Distance(point2) <= tolerance:
-                # Store the coordinates as a tuple (X, Y, Z) in the set
-                common_vertices_set.add((point2.X(), point2.Y(), point2.Z()))  # Child's vertex
-
-    # Convert the set back to a list for further use
-    common_vertices = list(common_vertices_set)
-
-    # If there are common vertices, store them in the vertexDict
-    if common_vertices:
-        if 'before_unfld' not in child.vertexDict:
-            child.vertexDict['before_unfld'] = []
-        if len(common_vertices) == 2:  # Adjusted condition for centroid calculation
-            if 'centroid_before_transform' not in child.vertexDict:
-                centroid = calculate_midpoint(common_vertices[0], common_vertices[1])
-                child.vertexDict["centroid_before_transform"] = centroid
-        # Append the new common vertices to the existing ones
-        child.vertexDict['before_unfld'].extend(common_vertices)
-
-
-def calculate_midpoint(vertex1, vertex2):
-    return (np.array(vertex1) + np.array(vertex2)) / 2
-           
+          
 def read_my_step_file(filename):
     """read the STEP file and returns a compound"""
     step_reader = STEPControl_Reader()
@@ -299,7 +265,7 @@ if __name__ == "__main__":
 
     #uwrap
     # Example usage
-    #traverse_and_unfold(root_node) #from unfold_multy.py
+    traverse_and_unfold(root_node) #from unfold_multy.py
     #unfold_and_transform(root_node)  # from unwrap.py
     #unwrap_cylindrical_face(root_node)  # from transform_node.py
 

@@ -58,6 +58,12 @@ from OCC.Core.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane
 from OCC.Core.gp import gp_Vec, gp_Dir
 from math import acos
 from face_operations import get_face_normal
+from OCC.Core.GProp import GProp_GProps
+from OCC.Core.BRepGProp import brepgprop
+from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Trsf, gp_Dir, gp_Ax1, gp_Quaternion
+from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
+import math
+from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire
 
 
 def calculate_rotation_to_align_with_z(normal_vector):
@@ -74,19 +80,11 @@ def calculate_rotation_to_align_with_z(normal_vector):
 
     # Calculate the axis of rotation (cross product of normal and Z-axis)
     rotation_axis = normal_vec.Crossed(z_axis)
-
+    print('Angle is {} and rotation axis is X: {}, Y: {}, Z: {}'.format(angle, rotation_axis.X(), rotation_axis.Y(), rotation_axis.Z()))
     return angle, rotation_axis
 
 
 def apply_transformation_to_node_and_children(node, transformation):
-    """
-    Recursively apply the given transformation to the current node's face
-    and propagate it to all child nodes.
-
-    Args:
-        node (FaceNode): The current face node to transform.
-        transformation (gp_Trsf): The transformation to apply (rotation).
-    """
     # Apply transformation to the current face
     transformed_face = BRepBuilderAPI_Transform(node.face, transformation, True).Shape()
     node.face = transformed_face  # Update the node's face to the transformed face
@@ -115,24 +113,32 @@ def align_box_root_to_z_axis(root_node):
     # Step 5: Apply the transformation to the root node and all child nodes
     apply_transformation_to_node_and_children(root_node, transformation)
 
-from OCC.Core.GProp import GProp_GProps
-from OCC.Core.BRepGProp import brepgprop
-from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Trsf, gp_Dir, gp_Ax1, gp_Quaternion
-from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
-import math
-from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire
+def apply_flatten_transformation(parent_node,translation_vector,pivot_center):
+
+    # Step 1: Get the normal vector of the root node's face
+    root_face_normal = get_face_normal(parent_node.face)
+    # Step 2: Calculate the rotation transformation to align the normal to Z-axis
+    angle, rotation_axis = calculate_rotation_to_align_with_z(root_face_normal)
+
+    # Step 3: Convert the rotation axis to a gp_Dir (direction)
+    rotation_dir = gp_Dir(rotation_axis.X(), rotation_axis.Y(), rotation_axis.Z())
+
+    transformation = gp_Trsf()
+    #Step 6: Set the translation in the gp_Trsf object
+    transformation.SetTranslation(gp_Vec(translation_vector[0], translation_vector[1], translation_vector[2]))
+    # Step 5: Apply the transformation to the root node and all child nodes
+    apply_transformation_to_node_and_children(parent_node, transformation)
+    # Step 4: Create the transformation
+    transformation = gp_Trsf()
+    transformation.SetRotation(gp_Ax1(gp_Pnt(pivot_center[0],pivot_center[1],pivot_center[2]), rotation_dir), angle)
+    # Step 6: Set the translation in the gp_Trsf object
+    #transformation.SetTranslation(gp_Vec(translation_vector[0], translation_vector[1], translation_vector[2]))
+    # Step 5: Apply the transformation to the root node and all child nodes
+    apply_transformation_to_node_and_children(parent_node, transformation)
+    # Step 4: Create the transformation
 
 def unwrap_cylindrical_face(node):
-    """
-    Unwrap a cylindrical face into a flat face and align it so that the common edge with the parent face is preserved
-    from the beginning by constructing the unwrapped face relative to the two common vertices.
-    
-    Args:
-        node (FaceNode): The node containing the cylindrical face to unwrap.
-    
-    Returns:
-        None: The function modifies the node's face directly.
-    """
+
     # Step 1: Identify the surface type
     surface_adaptor = BRepAdaptor_Surface(node.face)
     surface_type = surface_adaptor.GetType()
