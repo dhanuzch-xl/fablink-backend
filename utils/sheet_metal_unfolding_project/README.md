@@ -462,3 +462,10 @@ SheetTreeNode (inherits from BendNode)
            + cutEdgeFace()
            + Bend_analysis()
            + handle_hole()
+
+
+Modifications Required:
+Transformation Propagation: You need to ensure that once the second plate of Bend 1 is transformed, all plates connected to it (such as Plate 3, etc.) receive the same transformation before we proceed to flattening Bend 2. This ensures that the recursive unfolding logic will work correctly.
+
+Use of Transformed COM: After transforming the second plate (Plate 2) in Bend 1, the transformed COM of Plate 2 should be passed to the logic for Bend 2. This is critical because any transformations applied to Plate 2 will affect the subsequent plates (Plate 3, etc.).
+

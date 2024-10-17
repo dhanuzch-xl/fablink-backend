@@ -9,7 +9,7 @@ from OCC.Core.BRep import BRep_Tool
 
 from OCC.Core.GeomAbs import GeomAbs_BSplineSurface
 
-def apply_rotation_to_node_and_children(node, transformation):
+def apply_transformation_to_node_and_children(node, transformation):
     """
     Recursively apply the given transformation to the current node's face
     and propagate it to all child nodes.
@@ -24,7 +24,7 @@ def apply_rotation_to_node_and_children(node, transformation):
 
     # Recursively apply transformation to all child nodes
     for child in node.children:
-        apply_rotation_to_node_and_children(child, transformation)
+        apply_transformation_to_node_and_children(child, transformation)
 
 def rotate_box(root_node, angle_in_radians, axis='Z'):
     """
@@ -49,7 +49,7 @@ def rotate_box(root_node, angle_in_radians, axis='Z'):
     rotation_transformation.SetRotation(rotation_axis, angle_in_radians)
 
     # Apply the transformation to the root node and all its children
-    apply_rotation_to_node_and_children(root_node, rotation_transformation)
+    apply_transformation_to_node_and_children(root_node, rotation_transformation)
 
 from OCC.Core.gp import gp_Vec, gp_Trsf, gp_Ax1, gp_Dir, gp_Pnt
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
@@ -78,7 +78,7 @@ def calculate_rotation_to_align_with_z(normal_vector):
     return angle, rotation_axis
 
 
-def apply_rotation_to_node_and_children(node, transformation):
+def apply_transformation_to_node_and_children(node, transformation):
     """
     Recursively apply the given transformation to the current node's face
     and propagate it to all child nodes.
@@ -93,7 +93,7 @@ def apply_rotation_to_node_and_children(node, transformation):
 
     # Recursively apply transformation to all child nodes
     for child in node.children:
-        apply_rotation_to_node_and_children(child, transformation)
+        apply_transformation_to_node_and_children(child, transformation)
 
 
 def align_box_root_to_z_axis(root_node):
@@ -113,7 +113,7 @@ def align_box_root_to_z_axis(root_node):
     transformation.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), rotation_dir), angle)
 
     # Step 5: Apply the transformation to the root node and all child nodes
-    apply_rotation_to_node_and_children(root_node, transformation)
+    apply_transformation_to_node_and_children(root_node, transformation)
 
 from OCC.Core.GProp import GProp_GProps
 from OCC.Core.BRepGProp import brepgprop

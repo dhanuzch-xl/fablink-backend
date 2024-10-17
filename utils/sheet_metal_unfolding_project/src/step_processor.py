@@ -56,7 +56,9 @@ class FaceNode:
         self.bend_dir = None # Bending direction up or down
         self.thickness = None # face thickness
         self.bendlinesDict ={}
-        self.COM = None
+        self.COM = None # centre of mass of the surface
+        self.flatten = False # True if flattened
+        self.prev_transformation = None # store prev_transformation to reverse it
     def add_child(self, child_face):
         """Add a child to this face node."""
         child_node = FaceNode(child_face)

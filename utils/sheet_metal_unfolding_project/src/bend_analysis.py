@@ -1,6 +1,5 @@
 # src/bend_analysis.py
 from OCC.Core.BRepAdaptor import BRepAdaptor_Surface, BRepAdaptor_Curve
-
 from OCC.Core.gp import gp_Vec
 from OCC.Core.TopAbs import TopAbs_VERTEX
 from OCC.Core.TopAbs import TopAbs_EDGE
@@ -16,8 +15,6 @@ from OCC.Core.BRepTools import breptools
 from OCC.Core.BRep import BRep_Tool
 import math
 from OCC.Extend.TopologyUtils import TopologyExplorer
-
-
 
 def analyze_edges_and_vertices(node):
     """
@@ -129,6 +126,20 @@ def calculate_bend_angle(node):
             node.bend_angle = (u_max + 360) - u_min
         else:
             node.bend_angle = u_max - u_min
+
+
+def calculate_centre_of_mass(node):
+
+    # Create a GProp_GProps object to store the properties of the face
+    props = GProp_GProps()
+
+    # Compute surface properties (like the centroid)
+    brepgprop.SurfaceProperties(node.face, props)
+
+    # Return the centroid of the face
+    node.COM = props.CentreOfMass()
+
+
 
 # def radial_vector(point, center, axis):
 #     """
@@ -267,19 +278,6 @@ def calculate_bend_angle(node):
 #     midpoint_3d = parametric_cylinder_point(u_mid, v_mid, gp_cyl)
 
 #     return midpoint_3d
-
-
-def calculate_centre_of_mass(node):
-
-    # Create a GProp_GProps object to store the properties of the face
-    props = GProp_GProps()
-
-    # Compute surface properties (like the centroid)
-    brepgprop.SurfaceProperties(node.face, props)
-
-    # Return the centroid of the face
-    node.COM = props.CentreOfMass()
-
 
 
 

@@ -20,7 +20,7 @@ from face_operations import find_faces_with_thickness, get_face_normal
 from step_processor import  process_faces_connected_to_base,display_hierarchy
 import bend_analysis
 from transform_node import align_box_root_to_z_axis #unwrap_cylindrical_face
-from unwrap import unfold_and_transform
+from unfold_multi import traverse_and_unfold
 debug_identified_faces = False
 
 
@@ -209,7 +209,7 @@ def process_face_node(node):
         bend_analysis.calculate_bend_center(node)  # Call to calculate the bend center
         bend_analysis.calculate_bend_direction(node)
         bend_analysis.calculate_tangent_vectors(node)  # Calculate tangent vectors for unfolding    
-        
+        bend_analysis.calculate_bend_angle(node)
     # Further updates for axis, bend center, inner radius, etc.
     node.processed = True      # Mark this node as processed
 
@@ -227,23 +227,11 @@ def traverse_and_process_tree(node):
     # Process all child nodes
     for child in node.children:
         traverse_and_process_tree(child)
-    find_bend_angles(root_node)    
-
-def find_bend_angles(root_node):
-    """
-    Recursively finding bend angles.
-    """
-    if root_node is None or not root_node.processed:
-        return
-    # Process all child nodes for bending angle
-    for child in root_node.children:
-        get_common_vertices(root_node,child)
-        if not child.bend_angle:
-            bend_analysis.calculate_bend_angle(child)
-        find_bend_angles(child)
+        get_common_vertices(node,child)
 
 def get_common_vertices(parent, child, tolerance=1e-6):
-
+    if parent is None or not child.processed:
+        return
     vertices1 = [BRep_Tool.Pnt(v) for v in parent.vertices]  # Ensure parent.vertices are valid TopoDS_Vertex
     vertices2 = [BRep_Tool.Pnt(v) for v in child.vertices]
 
@@ -311,8 +299,9 @@ if __name__ == "__main__":
 
     #uwrap
     # Example usage
-    unfold_and_transform(root_node)
-    #unwrap_cylindrical_face(root_node)
+    #traverse_and_unfold(root_node) #from unfold_multy.py
+    #unfold_and_transform(root_node)  # from unwrap.py
+    #unwrap_cylindrical_face(root_node)  # from transform_node.py
 
     if cad_view:
         # Initialize the 3D display
