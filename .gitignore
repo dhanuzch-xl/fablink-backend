@@ -1,5 +1,9 @@
+models/*
 output/*
+utils/sheet_metal_unfolding_project/data
 node_modules
+# images
+*.png
 # Python related
 *.pyc
 *.pyo

@@ -5,6 +5,10 @@ import numpy as np
 from transform_node import apply_transformation_to_node_and_children,apply_flatten_transformation
 from OCC.Core.gp import gp_Trsf, gp_Vec, gp_Quaternion, gp_Dir
 from unfold import unfold_vertices
+from OCC.Core.BRep import BRep_Tool
+import bend_analysis
+from face_operations import get_face_normal
+
 # Function to calculate the transformation from old point P1, target point P2, and normal vector N1_vec (gp_Dir)
 def get_transformation_matrix(P1, P2, N1_vec, target_axis=None):
 
@@ -224,94 +228,68 @@ def transform_vertices(plate1_COM, bend_start, bend_end, plate2_COM, bend_radius
 
 
 def unfold_surfaces(plate1,bend,plate2):
-    plate1_COM = plate1.COM  
-    bend_start_vertex = bend.vertexDict['centroid_before_transform']
-    bend_end_vertex = plate2.vertexDict['centroid_before_transform'] 
+    plate1_COM = plate1.COM
+    bend_start_vertex = bend.vertexDict['center_after_transform']
+    bend_end_vertex = plate2.vertexDict['center_after_transform']
     bend_angle = bend.bend_angle
     bend_radius = bend.inner_radius
     plate2_COM = plate2.COM  
     new_bend_end_vertex, transformed_plate2_com = unfold_vertices(plate1_COM, bend_start_vertex, bend_end_vertex, plate2_COM,bend_radius,bend_angle,flatten=True)
-    
+    plate2.vertexDict["center_after_transform"] = new_bend_end_vertex
+    plate2.COM = transformed_plate2_com
     # Step 5: Calculate the translation vector to move bend_end_vertex to new_bend_end_vertex
     translation_vector = transformed_plate2_com - plate2_COM
     apply_flatten_transformation(plate2,translation_vector,transformed_plate2_com)
 
-    #new_bend_end_vertex, transformation = transform_vertices(plate1_COM, bend_start_vertex, bend_end_vertex, plate2_COM,bend_radius,bend_angle,flatten=True)
-    #create flatten face at the bend node using merge surface option in three JS or OCC
-    # transformation = get_transformation_matrix(plate2_COM,transformed_plate2_com,plate2.axis)
-    # apply_transformation_to_node_and_children(plate2,transformation)
 
-
-# Main Code
-def traverse_and_unfold(node):
+def find_and_unfold_triplets(node):
     """
-    Traverse the tree of face nodes to find the pattern Flat -> Cylindrical -> Flat
-    and call unfold_surfaces(flatnode1, cylnode, flatnode2) whenever such a pattern is found.
-    
+    Recursively traverse the tree to find all Flat -> Cylindrical -> Flat combinations
+    and store them in triplet_list.
+
     Parameters:
     node (FaceNode): The current node in the tree.
+    triplet_list (list): The list to store valid Flat -> Cylindrical -> Flat triplets.
     """
-    # Save the original node (root) to process siblings later
-    original_node = node
     count = 0
-    # Check if the current node is a flat surface and has not been flattened yet
-    if node.surface_type == 'Flat':  # Do not mark node.flatten yet
+    # Check if the current node is a flat surface
+    if node.surface_type == 'Flat': 
         # Traverse its children to find a cylindrical surface
         for child1 in node.children:
             if child1.surface_type == 'Cylindrical' and not child1.flatten:
                 # Traverse the children of the cylindrical surface to find another flat surface
                 for child2 in child1.children:
                     if child2.surface_type == 'Flat' and not child2.flatten:
-                        # We found the Flat -> Cylindrical -> Flat pattern, call unfold_surfaces
-                        unfold_surfaces(node, child1, child2)
-                        # Set flatten flag to True for cylindrical and second flat node
-                        child1.flatten = True
-                        child2.flatten = True
-                        count = count+1
-                        if count == 4:
-                            return
-    # Traverse all children of the current node recursively
+                        # Check for common shared edges before adding to the triplet list
+                        edge1 = bend_analysis.get_common_vertices(node, child1)
+                        edge2 = bend_analysis.get_common_vertices(child1, child2)
+                        if edge1 and edge2:
+                            # Unfold the surfaces based on their parameters and common edges
+                            unfold_surfaces(node, child1, child2)
+                            print('found_triplets of {}, {}, {}'.format(node.face_id, child1.face_id, child2.face_id))
+                            # Mark the cylindrical and second flat node as flattened
+                            child1.flatten = True
+                            child2.flatten = True
+                            count = count+1
+                            if count==1:
+                                return
+                            # Recursively process child2 after unfolding
+                            find_and_unfold_triplets(child2)  # Process further descendants of child2
+                            # Add the triplet (Flat -> Cylindrical -> Flat) to the list
+                            #triplet_list.append((node, child1, child2))
+                        else:
+                            print('No bend found between {}, {}, {}'.format(node.face_id,child1.face_id,child2.face_id))
+    # Recursively traverse the children of the current node
     for child in node.children:
-        
-        traverse_and_unfold(child)
-
-        get_common_vertices(node,child)
-
-def get_common_vertices(parent, child, tolerance=1e-6):
-    if parent is None or not child.processed:
-        return
-    vertices1 = [BRep_Tool.Pnt(v) for v in parent.vertices]  # Ensure parent.vertices are valid TopoDS_Vertex
-    vertices2 = [BRep_Tool.Pnt(v) for v in child.vertices]
-
-    # Use a set to track unique common vertices
-    common_vertices_set = set()
-
-    # Compare vertices from both faces to find common points within tolerance
-    for point1 in vertices1:
-        for point2 in vertices2:
-            if point1.Distance(point2) <= tolerance:
-                # Store the coordinates as a tuple (X, Y, Z) in the set
-                common_vertices_set.add((point2.X(), point2.Y(), point2.Z()))  # Child's vertex
-
-    # Convert the set back to a list for further use
-    common_vertices = list(common_vertices_set)
-
-    # If there are common vertices, store them in the vertexDict
-    if common_vertices:
-        if 'before_unfld' not in child.vertexDict:
-            child.vertexDict['before_unfld'] = []
-        if len(common_vertices) == 2:  # Adjusted condition for centroid calculation
-            if 'centroid_before_transform' not in child.vertexDict:
-                centroid = calculate_midpoint(common_vertices[0], common_vertices[1])
-                child.vertexDict["centroid_before_transform"] = centroid
-        # Append the new common vertices to the existing ones
-        child.vertexDict['before_unfld'].extend(common_vertices)
+        if not child.flatten:
+            find_and_unfold_triplets(child)
 
 
-def calculate_midpoint(vertex1, vertex2):
-    return (np.array(vertex1) + np.array(vertex2)) / 2
- 
-
+def traverse_and_unfold(node):
+    # Step 1: Find all Flat -> Cylindrical -> Flat combinations (triplets)
+    triplet_list = []
+    find_and_unfold_triplets(node)
+    #print(triplet_list)
 
 
 # # After processing children, return to the original root and traverse its other children (siblings)

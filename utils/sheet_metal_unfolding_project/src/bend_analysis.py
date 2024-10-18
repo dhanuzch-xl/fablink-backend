@@ -16,23 +16,29 @@ from OCC.Core.BRep import BRep_Tool
 import math
 from OCC.Extend.TopologyUtils import TopologyExplorer
 
+from OCC.Core.BRep import BRep_Tool
+import numpy as np
+
+
 def analyze_edges_and_vertices(node):
     """
     Analyzes the edges and vertices of the face and stores them in the node using TopologyExplorer.
     """
     # Create a TopologyExplorer instance for the face
     topology = TopologyExplorer(node.face)
-
+    #clear existing edges to avoid duplicates
+    node.edges = []
     # Analyze edges from the face
     edges = topology.edges_from_face(node.face)  # Pass the face explicitly
     node.edges = list(edges)  # Store edges directly in the node
-
+    # Clear the existing vertices to avoid duplicates
+    node.vertices = []
     # Analyze vertices from each edge
     for edge in node.edges:
         vertices = topology.vertices_from_edge(edge)  # Get vertices for each edge
         node.vertices.extend(vertices)  # Add vertices to the node's vertex list
 
-    # find face_centre
+
     
 
 def analyze_surface_type(node):
@@ -141,6 +147,39 @@ def calculate_centre_of_mass(node):
     com = props.CentreOfMass()
     node.COM = [com.X(),com.Y(),com.Z()]
 
+
+def get_common_vertices(parent, child, tolerance=1e-6):
+    mid_point_status = False
+    if parent is None or not child.processed:
+        return
+    vertices1 = [BRep_Tool.Pnt(v) for v in parent.vertices]  # Ensure parent.vertices are valid TopoDS_Vertex
+    vertices2 = [BRep_Tool.Pnt(v) for v in child.vertices]
+
+    # Use a set to track unique common vertices
+    common_vertices_set = set()
+
+    # Compare vertices from both faces to find common points within tolerance
+    for point1 in vertices1:
+        for point2 in vertices2:
+            if point1.Distance(point2) <= tolerance:
+                # Store the coordinates as a tuple (X, Y, Z) in the set
+                common_vertices_set.add((point2.X(), point2.Y(), point2.Z()))  # Child's vertex
+
+    # Convert the set back to a list for further use
+    common_vertices = list(common_vertices_set)
+
+    # If there are common vertices, store them in the vertexDict
+    if common_vertices:
+        if len(common_vertices) == 2:  # Adjusted condition for centroid calculation
+            center = calculate_midpoint(common_vertices[0], common_vertices[1])
+            child.vertexDict["center_after_transform"] = center
+            mid_point_status =  True
+            # Append the new common vertices to vertexDict
+            child.vertexDict['after_unfld']=common_vertices
+    return mid_point_status
+
+def calculate_midpoint(vertex1, vertex2):
+    return (np.array(vertex1) + np.array(vertex2)) / 2
 
 
 # def radial_vector(point, center, axis):

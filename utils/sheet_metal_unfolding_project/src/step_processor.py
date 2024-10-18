@@ -452,7 +452,7 @@ def get_face_id(face):
     return face_id
 
 
-def display_hierarchy(node, level=0):
+def assing_face_id(node, level=0):
     """
     Recursively display the hierarchy of faces (parents and children) in the console.
 
@@ -464,10 +464,10 @@ def display_hierarchy(node, level=0):
     face_id = get_face_id(node.face)  # Get face identifier (e.g., based on area)
     thickness_info = f" (Thickness: {node.thickness})" if node.thickness else ""
     print(f"{indent}{face_id}{thickness_info}")
-
+    node.face_id = face_id
     # Recursively display children
     for child in node.children:
-        display_hierarchy(child, level + 1)
+        assing_face_id(child, level + 1)
 
 
 def check_connection_optimized(face1, face2, tolerance=1e-6, num_samples_u=5, num_samples_v=5):
@@ -534,7 +534,6 @@ def sample_face_points(face, num_samples_u=5, num_samples_v=5):
 
 
 
-
 # if __name__ == "__main__":
 #     args = parse_arguments()
 
@@ -559,7 +558,7 @@ def sample_face_points(face, num_samples_u=5, num_samples_v=5):
 #     faces,root_node = process_faces_connected_to_base(pairs)
 
 #     # Display the hierarchy
-#     display_hierarchy(root_node)
+#     assing_face_id(root_node)
 #     # Export image with highlighted faces
 #     export_image_with_highlighted_faces(shape, faces, "output_with_highlight.png", display)
 

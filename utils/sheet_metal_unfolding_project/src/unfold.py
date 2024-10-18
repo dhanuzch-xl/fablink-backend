@@ -76,7 +76,7 @@ def transform_attached_line(bend_end_vertex, new_bend_end_vertex, plate2_COM, pa
     else:
         child_direction = np.array([plate2_COM[0],plate2_COM[1],plate2_COM[2]]) - np.array([bend_end_vertex[0],bend_end_vertex[1],bend_end_vertex[2]])
 
-    if sum(child_direction)>1e-6:
+    if abs(sum(child_direction))>1e-6:
         new_direction = child_direction
     else:
         new_direction = parent_direction

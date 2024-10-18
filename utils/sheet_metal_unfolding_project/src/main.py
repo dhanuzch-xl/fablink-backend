@@ -17,7 +17,7 @@ from OCC.Core.TopoDS import TopoDS_Vertex
 
 #custom libraries 
 from face_operations import find_faces_with_thickness, get_face_normal
-from step_processor import  process_faces_connected_to_base,display_hierarchy
+from step_processor import  process_faces_connected_to_base,assing_face_id
 import bend_analysis
 from transform_node import align_box_root_to_z_axis #unwrap_cylindrical_face
 from unfold_multi import traverse_and_unfold
@@ -47,7 +47,7 @@ def build_tree(shape,thickness,min_area):
         #root_face_node,faces = process_parallel_faces_with_hierarchy(pairs)
         faces,root_node = process_faces_connected_to_base(pairs,thickness)
         # Display the hierarchy
-        display_hierarchy(root_node)
+        assing_face_id(root_node)
 
         return faces, root_node
     except Exception as e:
@@ -95,7 +95,7 @@ def display_cad(display,faces=None, shape=None, root_node=None):
         #     display.Context.SetColor(ais_sphere, vertex_color, False)  # Set color to blue
         
         # Display common as small spheres with green color
-        common_vertex_pairs = node.vertexDict.get('before_unfld', [])
+        common_vertex_pairs = node.vertexDict.get('after_unfld', [])
         if common_vertex_pairs:
             for vertex in common_vertex_pairs:
                 # Check if the vertex is a TopoDS_Vertex
@@ -113,8 +113,7 @@ def display_cad(display,faces=None, shape=None, root_node=None):
                 display.Context.Display(ais_sphere, False)
                 display.Context.SetColor(ais_sphere, c_vertex_color, False)  # Set color
             #diplay centre of common edge
-            centroid = node.vertexDict.get('centroid_before_transform', [])
-
+            centroid = node.vertexDict.get('center_after_transform', [])
             # Assume the centroid is a tuple of coordinates (x, y, z)
             centroid_point = gp_Pnt(centroid[0], centroid[1], centroid[2])  # Create gp_Pnt from centroid coordinates
 
@@ -149,20 +148,22 @@ def display_cad(display,faces=None, shape=None, root_node=None):
                 display.Context.SetColor(ais_edge, tangent_vector_color, False)  # Set color to green
 
         # Display bend center as a small sphere with red color
-        if node.bend_center:
-            bend_center_sphere = BRepPrimAPI_MakeSphere(node.bend_center, 1.0).Shape()  # Bend center as a sphere
+        if node.COM:
+
+            com_point = gp_Pnt(node.COM[0], node.COM[1], node.COM[2])
+            bend_center_sphere = BRepPrimAPI_MakeSphere(com_point, 1.0).Shape()  # Bend center as a sphere
             ais_bend_center = AIS_Shape(bend_center_sphere)  # Create an AIS_Shape
             display.Context.Display(ais_bend_center, False)
             display.Context.SetColor(ais_bend_center, bend_center_color, False)  # Set color to red
 
-            # Display bend direction as a text message ('up' or 'down')
-            if node.bend_dir:
-                center_pt = gp_Pnt(node.bend_center.X(), node.bend_center.Y(), node.bend_center.Z() + 5)  # Offset the text position for visibility
-                display.DisplayMessage(center_pt, node.bend_dir, message_color=text_color)  # Display the bend direction text
+        # Display bend direction as a text message ('up' or 'down')
+        if node.bend_dir:
+            center_pt = gp_Pnt(node.bend_center.X(), node.bend_center.Y(), node.bend_center.Z() + 5)  # Offset the text position for visibility
+            display.DisplayMessage(center_pt, node.bend_dir, message_color=text_color)  # Display the bend direction text
 
-            if node.bend_angle:
-                center_pt = gp_Pnt(node.bend_center.X()+10, node.bend_center.Y()+10, node.bend_center.Z())  # Offset the text position for visibility
-                display.DisplayMessage(center_pt, str(node.bend_angle), message_color=text_color)  # Display the bend direction text
+        if node.bend_angle:
+            center_pt = gp_Pnt(node.bend_center.X()+10, node.bend_center.Y()+10, node.bend_center.Z())  # Offset the text position for visibility
+            display.DisplayMessage(center_pt, str(node.bend_angle), message_color=text_color)  # Display the bend direction text
         # Traverse all child nodes recursively
         for child in node.children:
             traverse_and_display(child)
@@ -221,14 +222,11 @@ def traverse_and_process_tree(node):
     """
     if node is None or node.processed:
         return
-    
     # Process current node's attributes
     process_face_node(node)
-
     # Process all child nodes
     for child in node.children:
         traverse_and_process_tree(child)
-          
 def read_my_step_file(filename):
     """read the STEP file and returns a compound"""
     step_reader = STEPControl_Reader()

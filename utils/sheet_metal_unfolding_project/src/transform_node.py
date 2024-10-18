@@ -64,7 +64,20 @@ from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Trsf, gp_Dir, gp_Ax1, gp_Quaternion
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 import math
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire
+import bend_analysis
 
+def update_face_params(node):
+    bend_analysis.analyze_surface_type(node)  # Update surface type (e.g., planar, cylindrical)
+    bend_analysis.analyze_edges_and_vertices(node)  # Analyze both edges and vertices
+    node.axis = get_face_normal(node.face)
+    bend_analysis.calculate_centre_of_mass(node)
+    # If the node represents a cylindrical surface, calculate the bend center
+    if node.surface_type == "Cylindrical":
+        bend_analysis.calculate_bend_center(node)  # Call to calculate the bend center for now inner radius is also added in it
+        bend_analysis.calculate_bend_direction(node)
+        bend_analysis.calculate_tangent_vectors(node)  # Calculate tangent vectors for unfolding    
+        bend_analysis.calculate_bend_angle(node)
+    
 
 def calculate_rotation_to_align_with_z(normal_vector):
     """
@@ -88,11 +101,10 @@ def apply_transformation_to_node_and_children(node, transformation):
     # Apply transformation to the current face
     transformed_face = BRepBuilderAPI_Transform(node.face, transformation, True).Shape()
     node.face = transformed_face  # Update the node's face to the transformed face
-
+    update_face_params(node)
     # Recursively apply transformation to all child nodes
     for child in node.children:
         apply_transformation_to_node_and_children(child, transformation)
-
 
 def align_box_root_to_z_axis(root_node):
     """
