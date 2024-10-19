@@ -128,11 +128,9 @@ def calculate_bend_angle(node):
         u_min, u_max, v_min, v_max = breptools.UVBounds(node.face)
         
         # Handle wrapping by checking if u_max < u_min
-        if u_max < u_min:
-            # Adjust angular span by unwrapping across 0 degrees
-            node.bend_angle = (u_max + 360) - u_min
-        else:
-            node.bend_angle = u_max - u_min
+    # Normalize the angle to be between -pi and pi
+        angle_diff = u_max - u_min
+        node.bend_angle = (angle_diff + np.pi) % (2 * np.pi) - np.pi
 
 
 def calculate_centre_of_mass(node):
@@ -321,87 +319,4 @@ def calculate_midpoint(vertex1, vertex2):
 #     return midpoint_3d
 
 
-
-
-# def calculate_bend_angle(node1, node2):
-
-#         # Ensure both bend center and axis are already populated
-#     if not node2.bend_center or not node2.axis:
-#         return
-#     P_node = node1  # Assuming node1 is the flat node
-#     P_edge = P_node.edges[0]  # We need to get the edge from the flat node (assuming first edge for now)
-#     the_face = node2.face  # Assuming node2 is the cylindrical node
-
-#     s_Axis = node2.axis  # Axis of the cylindrical surface
-#     s_Center = node2.bend_center  # Center of the cylindrical surface
-
-#     # Investigate the parametric range of the cylindrical face
-#     face_adaptor = BRepAdaptor_Surface(the_face)
-#     if face_adaptor.GetType() == GeomAbs_Cylinder:
-#         cylinder = face_adaptor.Cylinder()
-#         radius = cylinder.Radius()
-
-#         # Get UV bounds of the face using BRepTools
-#         u_min, u_max, v_min, v_max = breptools.UVBounds(the_face)
-
-#         # Get vertices of the edge
-#         edge_vertices = get_edge_vertices(P_edge)
-#         edge_vec = gp_Vec(edge_vertices[0].X(), edge_vertices[0].Y(), edge_vertices[0].Z())  # Convert first vertex to gp_Vec
-#         # Use BRepAdaptor_Curve to create a curve from the edge and project the edge point onto the curve
-#         curve_adaptor = BRepAdaptor_Curve(P_edge)
-#         # edge_projector = GeomAPI_ProjectPointOnCurve(gp_Pnt(edge_vec), curve_adaptor.Curve().Curve())
-#         edge_projector = GeomAPI_ProjectPointOnCurve(edge_vertices[0], curve_adaptor.Curve().Curve())
-#         edge_param_u = edge_projector.LowerDistanceParameter()
-
-#         # Determine the start and end angles on the surface
-#         angle_start = u_min if abs(u_min - edge_param_u) < 1e-6 else u_max
-#         angle_end = u_max if angle_start == u_min else u_min
-
-#         # Calculate the bend angle
-#         bend_angle = abs(angle_end - angle_start)
-#         node2.bend_angle = bend_angle
-
-#         # Calculate tangent vectors for unfolding
-#         angle_tan = angle_start + bend_angle / 6.0
-
-#         # Calculate positions and radial vectors
-#         tan_pos = face_adaptor.Value(angle_tan, v_min)  # Correct method to retrieve the point
-#         first_vec = radial_vector(edge_vec, s_Center, s_Axis)
-#         sec_vec = radial_vector(tan_pos, s_Center, s_Axis)
-
-#         # Cross product to determine the direction
-#         cross_vec = first_vec.Crossed(sec_vec)
-#         triple_prod = cross_vec.Dot(gp_Vec(s_Axis.Direction()))  # Ensure Dot() is between two vectors
-#         if triple_prod < 0:
-#             node2.axis = s_Axis.Reversed()
-
-#         # Final tangent vector for transformation
-#         tan_vec = gp_Vec(s_Axis.Direction()).Crossed(first_vec)  # Ensure Cross() is between two vectors
-#         node2.tangent_vector = tan_vec
-
-#         # Adjust the tangent vector based on the parent face normal and edge
-#         if P_node.surface_type == "Flat":
-#             p_vec = gp_Vec(edge_vertices[1].X(), edge_vertices[1].Y(), edge_vertices[1].Z()) - gp_Vec(edge_vertices[0].X(), edge_vertices[0].Y(), edge_vertices[0].Z())
-#             p_vec.Normalize()
-#             p_tan_vec = gp_Vec(P_node.axis.Direction()).Crossed(p_vec)  # Ensure Cross() is between vectors
-#             if (tan_vec - p_tan_vec).Magnitude() > 1.0:
-#                 node2.tangent_vector = p_tan_vec.Reversed()
-#             else:
-#                 node2.tangent_vector = p_tan_vec
-
-#         # Calculate the inner radius based on the bend direction
-#         if node2.bend_dir == "up":
-#             inner_radius = radius
-#         else:
-#             inner_radius = radius - node2.thickness
-
-#         node2.inner_radius = inner_radius
-
-#         # Calculate the k-factor and translation length
-#         k_factor = calculate_k_factor(inner_radius, node2.thickness)
-#         node2.translation_length = (inner_radius + k_factor * node2.thickness) * bend_angle
-#         return bend_angle, node2.bend_dir
-
-#     else:
-#         raise ValueError("The provided face is not cylindrical, cannot calculate bend angle.")
 

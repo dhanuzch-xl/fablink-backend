@@ -452,7 +452,7 @@ def get_face_id(face):
     return face_id
 
 
-def assing_face_id(node, level=0):
+def assign_face_id(node, level=0):
     """
     Recursively display the hierarchy of faces (parents and children) in the console.
 
@@ -467,7 +467,7 @@ def assing_face_id(node, level=0):
     node.face_id = face_id
     # Recursively display children
     for child in node.children:
-        assing_face_id(child, level + 1)
+        assign_face_id(child, level + 1)
 
 
 def check_connection_optimized(face1, face2, tolerance=1e-6, num_samples_u=5, num_samples_v=5):

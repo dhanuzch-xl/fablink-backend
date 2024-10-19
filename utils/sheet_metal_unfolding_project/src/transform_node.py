@@ -6,6 +6,7 @@ from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
 import math
 from OCC.Core.BRepTools import breptools
 from OCC.Core.BRep import BRep_Tool
+from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Ax1, gp_Ax2, gp_Ax3, gp_Trsf, gp_Dir
 
 from OCC.Core.GeomAbs import GeomAbs_BSplineSurface
 
@@ -125,96 +126,152 @@ def align_box_root_to_z_axis(root_node):
     # Step 5: Apply the transformation to the root node and all child nodes
     apply_transformation_to_node_and_children(root_node, transformation)
 
-def apply_flatten_transformation(parent_node,translation_vector,pivot_center):
+# def apply_flatten_transformation(parent_node,translation_vector,pivot_center):
 
-    # Step 1: Get the normal vector of the root node's face
-    root_face_normal = get_face_normal(parent_node.face)
-    # Step 2: Calculate the rotation transformation to align the normal to Z-axis
-    angle, rotation_axis = calculate_rotation_to_align_with_z(root_face_normal)
+#     # Step 1: Get the normal vector of the root node's face
+#     root_face_normal = get_face_normal(parent_node.face)
+#     # Step 2: Calculate the rotation transformation to align the normal to Z-axis
+#     angle, rotation_axis = calculate_rotation_to_align_with_z(root_face_normal)
 
+#     # Step 3: Convert the rotation axis to a gp_Dir (direction)
+#     rotation_dir = gp_Dir(rotation_axis.X(), rotation_axis.Y(), rotation_axis.Z())
+
+#     transformation = gp_Trsf()
+#     #Step 6: Set the translation in the gp_Trsf object
+#     transformation.SetTranslation(gp_Vec(translation_vector[0], translation_vector[1], translation_vector[2]))
+#     # Step 5: Apply the transformation to the root node and all child nodes
+#     apply_transformation_to_node_and_children(parent_node, transformation)
+#     # Step 4: Create the transformation
+#     transformation = gp_Trsf()
+#     transformation.SetRotation(gp_Ax1(gp_Pnt(pivot_center[0],pivot_center[1],pivot_center[2]), rotation_dir), angle)
+#     # Step 6: Set the translation in the gp_Trsf object
+#     #transformation.SetTranslation(gp_Vec(translation_vector[0], translation_vector[1], translation_vector[2]))
+#     # Step 5: Apply the transformation to the root node and all child nodes
+#     apply_transformation_to_node_and_children(parent_node, transformation)
+#     # Step 4: Create the transformation
+
+# Function to compute the angle between two vectors
+def angle_between_vectors(v1, v2):
+    v1_u = v1 / np.linalg.norm(v1)
+    v2_u = v2 / np.linalg.norm(v2)
+    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
+
+
+import numpy as np
+def apply_flatten_transformation(parent_node,b1,b2,bend_angle,bend_radius,bend_axis):
+
+    # Calculate the arc length
+    arc_length = bend_radius * bend_angle
+
+    # Straightened b2' along the XY plane, using arc length
+    direction_b1_b2 = np.array([b2[0] - b1[0], b2[1] - b1[1], 0])  # Flatten to XY plane
+    direction_b1_b2_normalized = direction_b1_b2 / np.linalg.norm(direction_b1_b2)
+    b2_prime = b1 + direction_b1_b2_normalized * arc_length
+
+    # Compute the rotation angle between b1-b2 and b1-b2'
+    #rotation_angle = angle_between_vectors(b2 - b1, b2_prime - b1)
+    # Compute the rotation axis using the cross product of b1-b2 and b1-b2'
+    #rotation_axis = np.cross(b2 - b1, b2_prime - b1)
+    #rotation_axis = np.array(b1_b2_edge[1])-np.array(b1_b2_edge[0])
     # Step 3: Convert the rotation axis to a gp_Dir (direction)
-    rotation_dir = gp_Dir(rotation_axis.X(), rotation_axis.Y(), rotation_axis.Z())
+    #rotation_dir = gp_Dir(rotation_axis[0],rotation_axis[1],rotation_axis[2])
 
+    translation_vector = b2_prime-b2
+    pivot_center = b2
+    #rotate
     transformation = gp_Trsf()
-    #Step 6: Set the translation in the gp_Trsf object
+    transformation.SetRotation(gp_Ax1(gp_Pnt(pivot_center[0],pivot_center[1],pivot_center[2]), bend_axis), -bend_angle)
+    apply_transformation_to_node_and_children(parent_node, transformation)
+    #translate
+    transformation = gp_Trsf()
     transformation.SetTranslation(gp_Vec(translation_vector[0], translation_vector[1], translation_vector[2]))
-    # Step 5: Apply the transformation to the root node and all child nodes
     apply_transformation_to_node_and_children(parent_node, transformation)
-    # Step 4: Create the transformation
-    transformation = gp_Trsf()
-    transformation.SetRotation(gp_Ax1(gp_Pnt(pivot_center[0],pivot_center[1],pivot_center[2]), rotation_dir), angle)
-    # Step 6: Set the translation in the gp_Trsf object
-    #transformation.SetTranslation(gp_Vec(translation_vector[0], translation_vector[1], translation_vector[2]))
-    # Step 5: Apply the transformation to the root node and all child nodes
-    apply_transformation_to_node_and_children(parent_node, transformation)
-    # Step 4: Create the transformation
 
 def unwrap_cylindrical_face(node):
+    if node.surface_type == 'Cylindrical':
+        common_vertices = node.vertexDict['after_unfld']
+        if len(common_vertices) == 2:
+            # Use the two common vertices for reference (forming the shared edge)
+            child_vertex1 = common_vertices[0]
+            child_vertex2 = common_vertices[1]
 
-    # Step 1: Identify the surface type
-    surface_adaptor = BRepAdaptor_Surface(node.face)
-    surface_type = surface_adaptor.GetType()
+            common_vertex1 = gp_Pnt(*child_vertex1)
+            common_vertex2 = gp_Pnt(*child_vertex2)
 
-    if surface_type == GeomAbs_Cylinder:
-        print('Unwrapping cylindrical surface...')
-        
-        # Step 2: Extract cylindrical parameters (radius, height, etc.)
-        cylinder = surface_adaptor.Cylinder()
-        radius = cylinder.Radius()
-        
-        # Step 3: Get the parametric bounds of the cylindrical face
-        u_min, u_max, v_min, v_max = breptools.UVBounds(node.face)
-        angular_span = u_max - u_min  # Angular extent in radians
-        length = angular_span * radius  # Arc length for the unwrapped face
+            # Step 1: Calculate unwrapped length and height
+            surface_adaptor = BRepAdaptor_Surface(node.face)
+            cylinder = surface_adaptor.Cylinder()
+            radius = cylinder.Radius()
+            axis = cylinder.Axis()
+            axis_dir = axis.Direction()
 
-        # Step 4: Get the common vertices between the cylindrical face and the parent face
-        parent_node = node
-        if parent_node and 'before_unfld' in parent_node.vertexDict:
-            common_vertices = parent_node.vertexDict['before_unfld']
-            
-            if len(common_vertices) >= 2:
-                # Use the two common vertices for reference (forming the shared edge)
-                (parent_vertex1, child_vertex1) = common_vertices[0]
-                (parent_vertex2, child_vertex2) = common_vertices[1]
-                
-                common_vertex1 = gp_Pnt(*child_vertex1)
-                common_vertex2 = gp_Pnt(*child_vertex2)
-                
-                # Step 5: Define the points of the unwrapped face relative to the common vertices
-                # The X direction represents the unwrapped length, and Z represents the vertical height (v_min to v_max)
-                
-                # # Using common_vertex1 as the reference for p1 and p4, and extending by the length
-                # p1 = gp_Pnt(common_vertex1.X(), common_vertex1.Y(), v_min)  # Bottom-left (aligned with common edge)
-                # p2 = gp_Pnt(common_vertex1.X() + length, common_vertex1.Y(), v_min)  # Bottom-right (aligned with unwrapped length)
-                
-                # # Using common_vertex2 for p3 and p4 for the vertical alignment (Z direction)
-                # p3 = gp_Pnt(common_vertex2.X() + length, common_vertex2.Y(), v_max)  # Top-right (aligned with unwrapped length)
-                # p4 = gp_Pnt(common_vertex2.X(), common_vertex2.Y(), v_max)  # Top-left (aligned with common edge)
+            # Step 3: Get the parametric bounds of the cylindrical face
+            u_min, u_max, v_min, v_max = breptools.UVBounds(node.face)
+            angular_span = u_max - u_min  # Angular extent in radians
+            unwrapped_length = angular_span * radius  # Arc length for the unwrapped face
 
-                # Using common_vertex1 as the reference for p1 and p4, and extending by the length
-                p1 = gp_Pnt(common_vertex1.X(), v_min, common_vertex1.Z())  # Bottom-left (aligned with common edge)
-                p2 = gp_Pnt(common_vertex1.X() + length, v_min, common_vertex1.Z())  # Bottom-right (aligned with unwrapped length)
-                
-                # Using common_vertex2 for p3 and p4 for the vertical alignment (Z direction)
-                p3 = gp_Pnt(common_vertex2.X() + length, v_max, common_vertex2.Z())  # Top-right (aligned with unwrapped length)
-                p4 = gp_Pnt(common_vertex2.X(), v_max, common_vertex2.Z())  # Top-left (aligned with common edge)
+            # Calculate the height along the axis direction
+            height = v_max - v_min  # Assuming v corresponds linearly to the height along the axis
 
-                # Step 6: Create edges from these points
-                edge1 = BRepBuilderAPI_MakeEdge(p1, p2).Edge()
-                edge2 = BRepBuilderAPI_MakeEdge(p2, p3).Edge()
-                edge3 = BRepBuilderAPI_MakeEdge(p3, p4).Edge()
-                edge4 = BRepBuilderAPI_MakeEdge(p4, p1).Edge()
+            # Step 2: Define the local coordinate system
+            origin = common_vertex1
 
-                # Step 7: Create the wire (closed loop of edges) for the planar face
-                wire = BRepBuilderAPI_MakeWire(edge1, edge2, edge3, edge4).Wire()
+            # The tangent direction at u_min
+            tangent_angle = u_min
+            # Compute the point on the cylinder at u_min and v_min
+            p_on_cylinder = surface_adaptor.Value(u_min, v_min)
+            # Compute the derivative (tangent vector) at that point
+            du = 1e-6  # A small increment
+            p_next = surface_adaptor.Value(u_min + du, v_min)
+            tangent_vec = gp_Vec(p_on_cylinder, p_next).Normalized()
+            x_dir = gp_Dir(tangent_vec)
 
-                # Step 8: Create the planar face from the wire
-                planar_face = BRepBuilderAPI_MakeFace(wire).Face()
+            # Ensure x_dir is orthogonal to axis_dir
+            x_dir = x_dir.Crossed(axis_dir).Crossed(axis_dir)
+            x_dir = gp_Dir(x_dir.XYZ())  # Normalize
 
-                # Step 9: Replace the cylindrical face with the unwrapped planar face
-                node.face = planar_face
-                node.surface_type = "Planar"  # Mark the node as planar
-    
+            # Compute Y-direction as cross product of Z and X
+            y_dir = axis_dir.Crossed(x_dir)
+            y_dir = gp_Dir(y_dir.XYZ())  # Normalize
+
+            # Create the local coordinate system (gp_Ax3)
+            local_ax3 = gp_Ax3(origin, axis_dir, x_dir)
+
+            # Create the unwrapped face in local coordinates
+            p1 = gp_Pnt(0, 0, 0)  # Origin
+            p2 = gp_Pnt(unwrapped_length, 0, 0)  # Along X-axis
+            p3 = gp_Pnt(unwrapped_length, height, 0)  # Along X and Y
+            p4 = gp_Pnt(0, height, 0)  # Along Y-axis
+
+            # Create edges and wire
+            edge1 = BRepBuilderAPI_MakeEdge(p1, p2).Edge()
+            edge2 = BRepBuilderAPI_MakeEdge(p2, p3).Edge()
+            edge3 = BRepBuilderAPI_MakeEdge(p3, p4).Edge()
+            edge4 = BRepBuilderAPI_MakeEdge(p4, p1).Edge()
+
+            wire_maker = BRepBuilderAPI_MakeWire()
+            wire_maker.Add(edge1)
+            wire_maker.Add(edge2)
+            wire_maker.Add(edge3)
+            wire_maker.Add(edge4)
+            wire = wire_maker.Wire()
+
+            # Create the planar face from the wire
+            planar_face = BRepBuilderAPI_MakeFace(wire).Face()
+
+            # Create the transformation from local to global coordinate system
+            trsf = gp_Trsf()
+            trsf.SetTransformation(local_ax3, gp_Ax3())
+
+            # Apply the transformation
+            brep_trsf = BRepBuilderAPI_Transform(planar_face, trsf, True)
+            transformed_face = brep_trsf.Shape()
+
+            # Replace the cylindrical face with the unwrapped planar face
+            node.face = transformed_face
+            node.surface_type = "Flat"  # Mark the node as planar
+
     # Recursively apply the same operation to all child nodes
     for child in node.children:
         unwrap_cylindrical_face(child)
@@ -286,6 +343,3 @@ def unwrap_bspline_face(node):
     # Recursively apply the same operation to all child nodes
     for child in node.children:
         unwrap_bspline_face(child)
-
-
-

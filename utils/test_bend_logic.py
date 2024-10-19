@@ -15,8 +15,14 @@ def rotation_matrix_around_axis(axis, angle):
     
     return rotation_matrix
 
+# Function to compute the angle between two vectors
+def angle_between_vectors(v1, v2):
+    v1_u = v1 / np.linalg.norm(v1)
+    v2_u = v2 / np.linalg.norm(v2)
+    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
 # Function to apply the transformation to both b2 and c1
-def straighten_arc(b1, b2, c1, bend_radius, bend_angle):
+def transform_points(b1, b2, c1, bend_radius, bend_angle):
     # Calculate the arc length
     arc_length = bend_radius * bend_angle
 
@@ -31,8 +37,8 @@ def straighten_arc(b1, b2, c1, bend_radius, bend_angle):
     # Compute the rotation axis using the cross product of b1-b2 and b1-b2'
     rotation_axis = np.cross(vec_b1_b2, b2_prime - b1)
     
-    # Use the bend angle as the rotation angle
-    rotation_angle = bend_angle
+    # Compute the rotation angle between b1-b2 and b1-b2'
+    rotation_angle = angle_between_vectors(vec_b1_b2, b2_prime - b1)
     
     # Get the rotation matrix around the computed axis
     rotation_mat = rotation_matrix_around_axis(rotation_axis, rotation_angle)
@@ -56,4 +62,10 @@ bend_radius = 3  # Bend radius
 bend_angle = np.pi / 4  # Bend angle (45 degrees)
 
 # Compute the transformed points b2' and c1'
-# b2_prime, c1_prime = straighten_arc(b1, b2, c1, bend_radius, bend_angle)
+b2_prime, c1_prime = transform_points(b1, b2, c1, bend_radius, bend_angle)
+
+# Print the results
+print("Original b2:", b2)
+print("Transformed b2 (b2'):", b2_prime)
+print("Original c1:", c1)
+print("Transformed c1 (c1'):", c1_prime)

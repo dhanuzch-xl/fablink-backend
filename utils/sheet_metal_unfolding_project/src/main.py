@@ -17,10 +17,10 @@ from OCC.Core.TopoDS import TopoDS_Vertex
 
 #custom libraries 
 from face_operations import find_faces_with_thickness, get_face_normal
-from step_processor import  process_faces_connected_to_base,assing_face_id
+from step_processor import  process_faces_connected_to_base,assign_face_id
 import bend_analysis
-from transform_node import align_box_root_to_z_axis #unwrap_cylindrical_face
-from unfold_multi import traverse_and_unfold
+from transform_node import align_box_root_to_z_axis ,unwrap_cylindrical_face
+from unfold import traverse_and_unfold
 debug_identified_faces = False
 
 
@@ -47,7 +47,7 @@ def build_tree(shape,thickness,min_area):
         #root_face_node,faces = process_parallel_faces_with_hierarchy(pairs)
         faces,root_node = process_faces_connected_to_base(pairs,thickness)
         # Display the hierarchy
-        assing_face_id(root_node)
+        assign_face_id(root_node)
 
         return faces, root_node
     except Exception as e:
@@ -155,7 +155,9 @@ def display_cad(display,faces=None, shape=None, root_node=None):
             ais_bend_center = AIS_Shape(bend_center_sphere)  # Create an AIS_Shape
             display.Context.Display(ais_bend_center, False)
             display.Context.SetColor(ais_bend_center, bend_center_color, False)  # Set color to red
-
+        if node.face_id:
+            center_pt = gp_Pnt(node.COM[0]+5, node.COM[1]+5, node.COM[2]+5)
+            display.DisplayMessage(center_pt, str(node.face_id), message_color=text_color)  # Display the bend direction text
         # Display bend direction as a text message ('up' or 'down')
         if node.bend_dir:
             center_pt = gp_Pnt(node.bend_center.X(), node.bend_center.Y(), node.bend_center.Z() + 5)  # Offset the text position for visibility
@@ -264,6 +266,8 @@ if __name__ == "__main__":
     #uwrap
     # Example usage
     traverse_and_unfold(root_node) #from unfold_multy.py
+
+    #unwrap_cylindrical_face(root_node)
     #unfold_and_transform(root_node)  # from unwrap.py
     #unwrap_cylindrical_face(root_node)  # from transform_node.py
 
