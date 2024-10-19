@@ -1,6 +1,16 @@
 {
     "item_id": "string",
-    "material": {
+    "part_properties": {
+      "flat_area": "number",
+      "flat_perimeter": "number",
+      "flat_bounding_box": "string",
+      "folded_bounding_box": "string",
+      "is_part_sheet_metal": "boolean",
+      "material_thickness": "number",
+      "num_bends": "number",
+      "num_holes": "number"
+    },
+    "material_selection": {
       "type": "string",
       "grade": "string",
       "thickness": "number",

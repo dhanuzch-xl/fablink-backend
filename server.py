@@ -4,8 +4,10 @@ from werkzeug.utils import secure_filename
 import uuid
 from utils.file_operations import allowed_file, convert_step_to_stl, process_step_file, save_uploaded_file, read_step, write_step, write_step_to_stl
 from utils.hole_operations import modify_hole_size
+from flask_cors import CORS  # Import CORS
 
 app = Flask(__name__, static_folder='static')
+CORS(app)  # Enable CORS for all routes
 
 # Set secret key for session management
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your_default_secret_key')
@@ -50,16 +52,33 @@ def upload_file():
             if result.get('error'):
                 return jsonify({'error': result['error']}), 500
 
-            # Return STL URL and extracted hole and edge data
+            # Return the processed data
             return jsonify({
+                'id': unique_filename,
                 'stlUrl': f"/output/{result['stl_filename']}",
                 'holes': result['holes'],
-                'edges': result['edges']
+                'edges': result['edges'],
+                'partProperties': result['part_properties']
             }), 200
-
+        
         # If it's an STL file, return the URL without processing
         elif unique_filename.endswith('.stl'):
-            return jsonify({'stlUrl': f"/output/{unique_filename}", 'holes': []}), 200
+            return jsonify({
+                'id': unique_filename,
+                'stlUrl': f"/output/{unique_filename}",
+                'holes': [],
+                'edges': [],
+                'partProperties': {
+                    'flat_area': None,
+                    'flat_perimeter': None,
+                    'flat_bounding_box': None,
+                    'folded_bounding_box': None,
+                    'is_part_sheet_metal': None,
+                    'material_thickness': None,
+                    'num_bends': None,
+                    'num_holes': None
+                }
+            }), 200
 
     return jsonify({'error': 'File type not allowed'}), 400
 

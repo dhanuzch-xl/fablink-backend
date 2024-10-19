@@ -1,0 +1,7 @@
+# POWDER COATING COLORS
+COLOR_NAME,PRICE_PER_UNIT,LAYER_THICKNESS,FINISH_TYPE,BASE_LEAD_TIMES
+Red,5,60 microns,Glossy,1 day
+Green,5,60 microns,Matte,1 day
+Yellow,5,60 microns,Glossy,1 day
+Black,5,60 microns,Matte,1 day
+White,5,60 microns,Glossy,1 day

@@ -10,7 +10,7 @@ let highlightedEdge = null; // Keeps track of the currently
 let selectedEdges = [];  // Initialize the selectedEdges array
 let lockedDropdownItem = null;  // Track the locked dropdown item
 let detectedHole = null; // Track the detected hole for selection
-let devop_mode = true;
+
 function init() {
   const container = document.getElementById('container');
   tooltip = document.getElementById('tooltip');
@@ -117,11 +117,8 @@ function editHoleDiameter(diameter, index) {
   function uploadAndLoadFile(file) {
     const formData = new FormData();
     formData.append('file', file);
-    const apiUrl = devop_mode
-        ? 'http://127.0.0.1:5000/api/upload_file'
-        : 'https://justmfgflaskapp.azurewebsites.net/api/upload_file'; // Removed extra '/'
-
-    fetch(apiUrl, {
+  
+    fetch('https://justmfgflaskapp.azurewebsites.net/api/upload_file', {
         method: 'POST',
         body: formData
     })
@@ -132,32 +129,29 @@ function editHoleDiameter(diameter, index) {
         return response.json();
     })
     .then(data => {
-          console.log('STL URL:', data.stlUrl);
-          // console.log('Holes Data:', data.holes);  // Log the holes data
-    
-        // Use the appropriate base URL depending on the devop_mode
-        const stlUrl = devop_mode 
-            ? 'http://127.0.0.1:5000' + data.stlUrl
-            : 'https://justmfgflaskapp.azurewebsites.net/' + data.stlUrl;
-
+        console.log('STL URL:', data.stlUrl);
+        // console.log('Holes Data:', data.holes);  // Log the holes data
+  
         // Load the STL model
         const loader = new THREE.STLLoader();
-        loader.load(stlUrl, function (geometry) {
-          const material = new THREE.MeshPhongMaterial({ color: 0x0077ff, specular: 0x111111, shininess: 200 });
-          plate = new THREE.Mesh(geometry, material);
-          plate.scale.set(0.1, 0.1, 0.1);
-          scene.add(plate);
+        loader.load('https://justmfgflaskapp.azurewebsites.net/' + data.stlUrl, function (geometry) {
+            const material = new THREE.MeshPhongMaterial({ color: 0x0077ff, specular: 0x111111, shininess: 200 });
+            plate = new THREE.Mesh(geometry, material);
+            plate.scale.set(0.1, 0.1, 0.1);
+            scene.add(plate);
 
-          // Store and process the edges data (calling the createEdgesFromBackend function)
-          if (data.edges) {
-              createEdgesFromBackend(data.edges);  // Call the function to create edges from backend data
-          }
-      });
-
+            // Store and process the edges data (calling the createEdgesFromBackend function)
+            if (data.edges) {
+                createEdgesFromBackend(data.edges);  // Call the function to create edges from backend data
+            }
+        });
   
         // Store and process the holes data
         holes = data.holes;
         //processHoleData(data.holes);
+  
+ 
+  
     })
     .catch(error => console.error('Error loading STL:', error));
   }
@@ -257,7 +251,6 @@ function onMouseMove(event) {
   }
 
 }
-
 function visualizeRaycasting() {
   // Remove existing arrow helper to avoid stacking
   if (window.arrowHelper) {
@@ -450,11 +443,7 @@ document.getElementById('stud-file-input').addEventListener('change', function (
     const formData = new FormData();
     formData.append('file', studFile);
 
-    // Use the appropriate base URL depending on the devop_mode
-    const studUrl = devop_mode 
-      ? 'http://127.0.0.1:5000/api/upload_stud'
-      : 'https://justmfgflaskapp.azurewebsites.net//api/upload_stud';
-    fetch(studUrl, {
+    fetch('https://justmfgflaskapp.azurewebsites.net//api/upload_stud', {
         method: 'POST',
         body: formData,
         headers: {
@@ -471,12 +460,8 @@ document.getElementById('stud-file-input').addEventListener('change', function (
         console.log('STL URL for Stud:', data.stlUrl);
 
         // Load the STL model of the stud
-                // Use the appropriate base URL depending on the devop_mode
-        const stlUrl = devop_mode 
-            ? 'http://127.0.0.1:5000' + data.stlUrl
-            : 'https://justmfgflaskapp.azurewebsites.net/' + data.stlUrl;
         const loader = new THREE.STLLoader();
-        loader.load(stlUrl, function (geometry) {
+        loader.load('https://justmfgflaskapp.azurewebsites.net/' + data.stlUrl, function (geometry) {
             placeStudInHole(geometry, selectedHole);  // Place the stud in the selected hole
         });
     })

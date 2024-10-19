@@ -1,0 +1,8 @@
+# MACHINE INFO
+MACHINE_NAME,HOURLY_RATE_INR,HUMANS_REQUIRED,MACHINE_SPECIFIC_INFO
+Laser_Cutting,1200,1,"Laser Power: 3 kW"
+Bending,1000,1,"Max Bending Force: 100 tons"
+Welding,1500,2,"Welding Type: MIG/TIG"
+Deburring,800,1,"Deburring Speed: 5 m/min"
+Hardware_Insertion,900,1,"Max Insertion Force: 50 kN"
+Powder_Coating,1100,2,"Layer Thickness: 60 microns, Glossy/Matte"

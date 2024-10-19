@@ -1,0 +1,74 @@
+{
+  "laser_cutting": {
+    "cost_per_meter": null,
+    "cost_per_melting_point": null
+  },
+  "bending": {
+    "bend_length": null
+  },
+  "welding": {
+    "weld_length": null,
+    "weld_type": null,
+    "weld_consumables": null
+  },
+  "hardware_insertion": {
+    "cost_per_insert": null
+  },
+  "tapping": {
+    "cost_per_tap": null
+  },
+  "powder_coating": {
+    "cost_per_sqm": null,
+    "color_prices": {
+      "black": null,
+      "green": null,
+      "yellow": null,
+      "white": null
+    }
+  },
+  "deburring": {
+    "offered": false
+  },
+  "parity_pricing": {
+    "us_multiplier": 2,
+    "india_multiplier": 1
+  },
+  "profit_margins": {
+    "xlogic": 0.30,
+    "third_party": 0.20
+  },
+  "changeover_cost_percentage": [
+    {
+      "range": [
+        1,
+        49
+      ],
+      "percentage": 0.02
+    },
+    {
+      "range": [
+        50,
+        499
+      ],
+      "percentage": 0.01
+    },
+    {
+      "range": [
+        500,
+        999
+      ],
+      "percentage": 0.005
+    },
+    {
+      "range": [
+        1000,
+        "Infinity"
+      ],
+      "percentage": 0.0
+    }
+  ],
+  "labour_charges": {
+    "skilled": 30000,
+    "unskilled": 20000
+  }
+}
