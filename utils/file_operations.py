@@ -4,7 +4,7 @@ from werkzeug.utils import secure_filename
 from OCC.Extend.DataExchange import read_step_file_with_names_colors, write_stl_file, write_step_file, read_step_file
 from utils.hole_operations import recognize_hole_faces
 from utils.find_edges import get_edges, edge_to_dict
-
+from utils.get_specs import process_shape
 
 def read_step(file_path):
     return read_step_file(file_path)
@@ -67,11 +67,15 @@ def process_step_file(file_path, unique_filename, output_dir):
         # Extract edge data
         edges = [edge_to_dict(edge) for edge in get_edges(shape)]
 
+        #get manufacturing params
+        params = process_shape(shape,edges,holes)
+        print(params)
         # Return STL filename, hole data, and edge data
         return {
             'stl_filename': stl_filename,
             'holes': holes,
-            'edges': edges
+            'edges': edges,
+            'params': params
         }
 
     except Exception as e:

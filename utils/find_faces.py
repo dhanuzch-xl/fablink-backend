@@ -12,6 +12,8 @@ from OCC.Display.SimpleGui import init_display
 from OCC.Extend.TopologyUtils import TopologyExplorer  # Ensure you import the correct class
 from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere  # Import for creating a sphere
 from OCC.Core.Quantity import Quantity_Color, Quantity_TOC_RGB  # Import for color handling
+from OCC.Core.BRepGProp import brepgprop_SurfaceProperties
+from OCC.Core.GProp import GProp_GProps
 
 # Initialize the display only once
 display, start_display, add_menu, add_function_to_menu = init_display()
@@ -46,6 +48,21 @@ def visualize_plane_location(location):
     sphere_radius = 5.0  # Fixed radius for the sphere
     sphere = BRepPrimAPI_MakeSphere(location, sphere_radius).Shape()  # Create a sphere at the location
     display.DisplayShape(sphere, update=True)  # Display the sphere
+
+def get_face_area(face):
+    """
+    Compute and return the area of a given face.
+
+    Parameters:
+    - face: The TopoDS_Face object whose area is to be calculated.
+
+    Returns:
+    - area: The area of the face as a float.
+    """
+    props = GProp_GProps()
+    brepgprop_SurfaceProperties(face, props)
+    area = props.Mass()
+    return area
 
 def recognize_face(a_face):
     """Identify the nature of the face (plane, cylinder, etc.) and display normals."""
@@ -97,7 +114,7 @@ def on_face_selected(shapes):
             recognize_face(topods_Face(shape))  # Call the recognize_face function to print details
 
 def main():
-    # Load the STEP file (update the path as needed)
+    # Load the fSTEP file (update the path as needed)
     filename = "/home/meher/xlogic/fablink-backend/models/WP-2.step"  # Change to your STEP file path
     shp = read_step_file(filename)
 

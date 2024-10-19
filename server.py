@@ -54,7 +54,8 @@ def upload_file():
             return jsonify({
                 'stlUrl': f"/output/{result['stl_filename']}",
                 'holes': result['holes'],
-                'edges': result['edges']
+                'edges': result['edges'],
+                'params':result['params']
             }), 200
 
         # If it's an STL file, return the URL without processing

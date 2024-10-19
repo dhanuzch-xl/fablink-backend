@@ -1,4 +1,6 @@
+utils/sheet_metal_unfolding_project/data/*
 output/*
+*.png
 # Python related
 *.pyc
 *.pyo

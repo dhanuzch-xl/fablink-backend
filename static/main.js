@@ -153,11 +153,11 @@ function editHoleDiameter(diameter, index) {
               createEdgesFromBackend(data.edges);  // Call the function to create edges from backend data
           }
       });
-
-  
         // Store and process the holes data
         holes = data.holes;
-        //processHoleData(data.holes);
+       // specs
+        params = data.params;
+        console.log(params)
     })
     .catch(error => console.error('Error loading STL:', error));
   }
@@ -749,7 +749,7 @@ function createEdgesFromBackend(edgeData) {
     scene.add(edgeLine);
 
     // Log the material for debugging
-    console.log('Edge material cloned:', material);
+    //console.log('Edge material cloned:', material);
 
     // Store the edge in the edgesArray for raycasting
     edgesArray.push(edgeLine);

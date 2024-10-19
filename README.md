@@ -2,6 +2,9 @@ Build and running
 docker build -t flask-app .
 docker run -p 5000:5000 flask-app:lates
 
+specs from server 
+    params = {'flat_area':1000,'perimeter':perimeter,'num_holes':num_cylinders,'box_dim':[x_max-x_min,y_max-y_min,z_max-z_min],'is_sheet':is_sheet,'area':total_area, 'num_bends':num_bends,'thickness':thickness}
+
 TODO:
 flaten the goemetry - Note that step files vertical axis could be Y or Z axis
 Need undo facility. Create list of operations and when the tile of operation is closed that should undo the change in stl file.
