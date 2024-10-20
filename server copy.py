@@ -2,7 +2,7 @@ import os
 from flask import Flask, send_file, jsonify, request, send_from_directory
 from werkzeug.utils import secure_filename
 import uuid
-from utils.file_operations_new import allowed_file, convert_step_to_stl, process_step_file, save_uploaded_file, read_step, write_step, write_step_to_stl
+from utils.file_operations import allowed_file, convert_step_to_stl, process_step_file, save_uploaded_file, read_step, write_step, write_step_to_stl
 from utils.hole_operations import modify_hole_size
 
 
@@ -41,24 +41,22 @@ def upload_file():
         # Save the uploaded file using a utility function
         unique_filename, file_path = save_uploaded_file(file, OUTPUT_DIR)
 
-        # If it's a STEP file, process it
+        # If it's a STEP file, process it (convert to STL, extract hole and edge data)
         if unique_filename.endswith(('.step', '.stp')):
             result = process_step_file(file_path, unique_filename, OUTPUT_DIR)
             if result.get('error'):
                 return jsonify({'error': result['error']}), 500
 
-            # Generate STL URLs
-            stl_urls = [f"/output/{filename}" for filename in result['stl_filenames']]
-
-            # Return STL URLs and holes data
+            # Return STL URL and extracted hole and edge data
             return jsonify({
-                'stlUrls': stl_urls,
-                'holes_data': result['holes_data']
+                'stlUrl': f"/output/{result['stl_filename']}",
+                'holes': result['holes'],
+                'edges': result['edges']
             }), 200
 
         # If it's an STL file, return the URL without processing
         elif unique_filename.endswith('.stl'):
-            return jsonify({'stlUrls': [f"/output/{unique_filename}"], 'holes_data': []}), 200
+            return jsonify({'stlUrl': f"/output/{unique_filename}", 'holes': []}), 200
 
     return jsonify({'error': 'File type not allowed'}), 400
 

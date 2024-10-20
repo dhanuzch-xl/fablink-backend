@@ -2,8 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-import bend_analysis
-from transform_node import apply_flatten_transformation
+
 from OCC.Core.gp import gp_Pnt
 from OCC.Core.BRepBuilderAPI import (
     BRepBuilderAPI_MakePolygon,
@@ -13,6 +12,11 @@ from OCC.Core.BRepBuilderAPI import (
     
     
 )
+
+
+from . import bend_analysis
+from .transform_node import apply_flatten_transformation
+
 # Function to calculate the transformation matrix from old point P1, target point P2, and normal vector N1
 def get_transformation_matrix(P1, P2, N1):
     # Normalize the normal vector N1
@@ -136,8 +140,6 @@ def unfold_vertices(plate1_COM, bend_start, bend_end, plate2_COM, bend_radius=2,
     new_line_end_vertex = transform_attached_line(bend_end, new_bend_end_vertex, plate2_COM, direction_vector,flatten)
     return new_bend_end_vertex, new_line_end_vertex
 
-from unfold_multi import straighten_arc
-from flattened_plates import flatten_bent_plate
 def unfold_surfaces(plate1,bend,plate2):
     plate1_COM = plate1.COM
     bend_start_vertex = bend.vertexDict['center_after_transform']

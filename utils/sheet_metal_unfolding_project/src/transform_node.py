@@ -7,8 +7,11 @@ import math
 from OCC.Core.BRepTools import breptools
 from OCC.Core.BRep import BRep_Tool
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Ax1, gp_Ax2, gp_Ax3, gp_Trsf, gp_Dir
-
 from OCC.Core.GeomAbs import GeomAbs_BSplineSurface
+
+#custom libraries 
+from . import bend_analysis
+from .face_operations import get_face_normal
 
 def apply_transformation_to_node_and_children(node, transformation):
     """
@@ -58,14 +61,13 @@ from math import acos
 from OCC.Core.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane
 from OCC.Core.gp import gp_Vec, gp_Dir
 from math import acos
-from face_operations import get_face_normal
 from OCC.Core.GProp import GProp_GProps
 from OCC.Core.BRepGProp import brepgprop
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Trsf, gp_Dir, gp_Ax1, gp_Quaternion
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 import math
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire
-import bend_analysis
+
 
 def update_face_params(node):
     bend_analysis.analyze_surface_type(node)  # Update surface type (e.g., planar, cylindrical)

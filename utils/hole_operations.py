@@ -23,6 +23,8 @@ def recognize_hole_faces(step_file):
                 holes.append(hole_data)
     return holes
 
+
+
 def recognize_holes(a_face):
     if not isinstance(a_face, TopoDS_Face):
         return None
@@ -83,3 +85,51 @@ def modify_hole_size(shape, new_size, hole_data):
 
     return modified_shape
 
+
+from OCC.Core.TopoDS import TopoDS_Shape, topods
+from OCC.Core.TopExp import TopExp_Explorer
+from OCC.Core.TopAbs import TopAbs_FACE
+from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+from OCC.Core.GeomAbs import GeomAbs_Cylinder
+from OCC.Core.Bnd import Bnd_Box
+from OCC.Core.BRepBndLib import brepbndlib
+from OCC.Core.TopAbs import TopAbs_INTERNAL
+def recognize_holes_new(a_shape):
+    if not isinstance(a_shape, TopoDS_Shape):
+        return None
+
+    holes = []
+
+    # Traverse all faces in the solid
+    face_explorer = TopExp_Explorer(a_shape, TopAbs_FACE)
+    while face_explorer.More():
+        face = topods.Face(face_explorer.Current())
+
+        # Check if the face has cylindrical geometry
+        surface_adaptor = BRepAdaptor_Surface(face)
+        surf_type = surface_adaptor.GetType()
+
+        if surf_type == GeomAbs_Cylinder:
+            # Extract cylinder information
+            cylinder = surface_adaptor.Cylinder()
+            location = cylinder.Location()
+            axis = cylinder.Axis().Direction()
+            radius = cylinder.Radius()
+
+            # Calculate the bounding box to get the cylinder's height (depth of the hole)
+            bbox = Bnd_Box()
+            brepbndlib.Add(face, bbox)
+            xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
+            height = zmax - zmin  # Adjust according to the orientation
+
+            # Store hole properties
+            holes.append({
+                "position": {"x": location.X(), "y": location.Y(), "z": location.Z()},
+                "diameter": radius * 2,
+                "depth": height,
+                "axis": {"x": axis.X(), "y": axis.Y(), "z": axis.Z()}
+            })
+
+        face_explorer.Next()
+
+    return holes if holes else None

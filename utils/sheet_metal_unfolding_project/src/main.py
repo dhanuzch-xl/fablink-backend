@@ -16,11 +16,11 @@ from OCC.Core.AIS import AIS_Shape
 from OCC.Core.TopoDS import TopoDS_Vertex
 
 #custom libraries 
-from face_operations import find_faces_with_thickness, get_face_normal
-from step_processor import  process_faces_connected_to_base,assign_face_id
-import bend_analysis
-from transform_node import align_box_root_to_z_axis ,unwrap_cylindrical_face
-from unfold import traverse_and_unfold
+from .face_operations import find_faces_with_thickness, get_face_normal
+from .step_processor import  process_faces_connected_to_base,assign_face_id
+from . import bend_analysis
+from .transform_node import align_box_root_to_z_axis ,unwrap_cylindrical_face
+from .unfold import traverse_and_unfold
 debug_identified_faces = False
 
 
@@ -244,35 +244,68 @@ def read_my_step_file(filename):
         print("Error: can't read file.")
         return
     return a_shape
-if __name__ == "__main__":
-    args = parse_arguments()
-    step_filename = args.step_file
-    thickness = args.thickness
-    min_area = 10.0
-    cad_view=True
-    # Read the STEP file
-    print(f"Reading STEP file: {step_filename}")
-    shape = read_my_step_file(step_filename)
-    
-    # build_tree out of shape
-    faces, root_node = build_tree(shape,thickness,min_area)
 
-    # transform face
+import logging
+import argparse
+
+# Configure logging for debugging purposes
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def build_and_process_tree(file_path,cad_view=False, thickness=2.0, min_area=300.0):
+    """
+    Function to process the STEP file and return results.
+    
+    Parameters:
+    - file_path: path to the STEP file
+    - unique_file_name: name of the unique file
+    - output_dir: directory where output files are saved
+    - cad_view: whether to display the CAD view
+    - thickness: thickness parameter for processing
+    - min_area: minimum area for filtering faces
+    """
+    logger.info(f"Processing STEP file: {file_path}")
+
+    # Read the STEP file
+    shape = read_my_step_file(file_path)
+
+    # Build tree out of shape
+    faces, root_node = build_tree(shape, thickness, min_area)
+
+    # Align box root to the z-axis
     align_box_root_to_z_axis(root_node)
 
-    #process each face in the tree
+    # Traverse and process tree
     traverse_and_process_tree(root_node)
 
-    #uwrap
-    # Example usage
-    traverse_and_unfold(root_node) #from unfold_multy.py
+    # Unwrap shape
+    traverse_and_unfold(root_node)  # from unfold_multy.py
 
-    #unwrap_cylindrical_face(root_node)
-    #unfold_and_transform(root_node)  # from unwrap.py
-    #unwrap_cylindrical_face(root_node)  # from transform_node.py
-
+    # Optionally, show the CAD view
     if cad_view:
-        # Initialize the 3D display
         display, start_display, add_menu, add_function_to_menu = init_display()
-        display_cad(display,root_node=root_node)
+        display_cad(display, root_node=root_node)
         start_display()
+
+    return root_node
+
+def main():
+    """
+    Main function for standalone execution.
+    It parses arguments and calls the process_step_file function.
+    """
+    # Parse command-line arguments     python your_script.py path/to/your/stepfile.step --thickness 0.2 --cad_view
+    parser = argparse.ArgumentParser(description="Process a STEP file.")
+    parser.add_argument("step_file", help="Path to the STEP file")
+    parser.add_argument("--thickness", type=float, default=2.0, help="Thickness for processing")
+    parser.add_argument("--min_area", type=float, default=10.0, help="Minimum area for face filtering")
+    parser.add_argument("--cad_view", action="store_true", help="Enable CAD view display")
+    
+    args = parser.parse_args()
+
+    # Call the processing function with arguments
+    build_and_process_tree(args.step_file, cad_view=args.cad_view, thickness=args.thickness, min_area=args.min_area)
+
+if __name__ == "__main__":
+    # This will run only when the script is executed directly
+    main()

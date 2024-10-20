@@ -10,8 +10,7 @@ let highlightedEdge = null; // Keeps track of the currently
 let selectedEdges = [];  // Initialize the selectedEdges array
 let lockedDropdownItem = null;  // Track the locked dropdown item
 let detectedHole = null; // Track the detected hole for selection
-plates = []
-holesData = []
+
 
 
 function init() {
@@ -120,46 +119,41 @@ function editHoleDiameter(diameter, index) {
     }
   }
 
-function uploadAndLoadFile(file) {
-  const formData = new FormData();
-  formData.append('file', file);
+  function uploadAndLoadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
 
-  fetch('http://127.0.0.1:5000/api/upload_file', {
-      method: 'POST',
-      body: formData
-  })
-  .then(response => {
-      if (!response.ok) {
-          throw new Error(`Error: ${response.statusText}`);
-      }
-      return response.json();
-  })
-  .then(data => {
-      console.log('STL URLs:', data.stlUrls);
+    fetch('http://127.0.0.1:5000/api/upload_file', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Error: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('STL URL:', data.stlUrl);
 
-      const loader = new THREE.STLLoader();
+        // Load the STL model
+        const loader = new THREE.STLLoader();
+        loader.load('http://127.0.0.1:5000' + data.stlUrl, function (geometry) {
+            const material = new THREE.MeshPhongMaterial({ color: 0x0077ff, specular: 0x111111, shininess: 200 });
+            plate = new THREE.Mesh(geometry, material);
+            plate.scale.set(0.1, 0.1, 0.1);  // Adjust scale if needed
+            scene.add(plate);
+            if (data.edges) {
+                createEdgesFromBackend(data.edges);  // Call the function to create edges from backend data
+            }
+        });
 
-      data.stlUrls.forEach((stlUrl, index) => {
-          loader.load('http://127.0.0.1:5000' + stlUrl, function (geometry) {
-              const material = new THREE.MeshPhongMaterial({ color: 0x0077ff });
-              const plate = new THREE.Mesh(geometry, material);
-              plate.scale.set(0.1, 0.1, 0.1);  // Adjust scale if needed
-              scene.add(plate);
-
-              // Store the plate and its holes data
-              plates.push(plate);
-              if (data.holes_data && data.holes_data[index]) {
-                  holesData.push(data.holes_data[index].hole_data);
-              } else {
-                  holesData.push([]);  // No holes data for this plate
-              }
-
-          });
-      });
-    console.log('holes are ',holesData)
-  })
-  .catch(error => console.error('Error loading STL:', error));
+        // Store and process the holes data
+        holes = data.holes;
+    })
+    .catch(error => console.error('Error loading STL:', error));
 }
+
 
 function add_two_faces() {
   // Define vertices for the horizontal plate (lying flat on the XZ-plane)
@@ -360,23 +354,17 @@ function onMouseMove(event) {
 
 
   // Perform raycasting only if the plate is defined
-  if (plates) {
+  if (plate) {
 
     raycaster.setFromCamera(mouse, camera);
     //visualizeRaycasting();  // Visualize the raycaster's direction
 
     // Check if the ray intersects with the 3D object (plate)
-      // Use the plates array here
-      const intersects = raycaster.intersectObjects( plates );
-
-      if ( intersects.length > 0 ) {
-          const intersect = intersects[0];
-          const point = intersect.point;
-          plate = intersect.object;
-  
-          // Find the closest hole on the intersected plate
-          const closestHole = findClosestHole(point);
-  
+    let intersects = raycaster.intersectObject(plate, true);
+    // console.log("Raycaster Intersects:", intersects);
+    if (intersects.length > 0) {
+        // Find the nearest hole to the intersection point
+        let closestHole = findClosestHole(intersects[0].point);
         
         if (closestHole) {
             // Highlight corresponding hole in dropdown
@@ -424,9 +412,11 @@ function visualizeRaycasting() {
 }
 
 
+
 function findClosestHole(point) {
   let closestHole = null;
   let minDistance = Infinity;  // Minimum "effective" distance
+
 
   // Scale the intersection point back to the original model size
   const unscaledIntersectionPoint = new THREE.Vector3(
@@ -435,40 +425,30 @@ function findClosestHole(point) {
       point.z / plate.scale.z
   );
 
-  // Retrieve the hole data associated with this plate
-  const plateIndex = plates.indexOf(plate);
-  if (plateIndex === -1) {
-      console.error("Plate not found in plates array");
-      return null;
-  }
-
-  const holeData = holesData[plateIndex];  // Get holes data for this plate
 
   // Iterate over all holes in the original unscaled space
-  holeData.forEach(function (hole) {
+  holes.forEach(function (hole, index) {
       const holePosition = new THREE.Vector3(hole.position.x, hole.position.y, hole.position.z);
 
-      // Calculate the distance between the intersection point and the hole center
+      // Calculate the distance between the intersection point (scaled up) and the hole center
       const distanceToCenter = holePosition.distanceTo(unscaledIntersectionPoint);
 
-      // Calculate the hole's radius
+      // Calculate the hole's radius (no scaling required, since we're comparing in unscaled space)
       const holeRadius = hole.diameter / 2;
 
       // Effective distance: how close the point is to the edge of the hole
       const effectiveDistance = distanceToCenter - holeRadius;
 
       // If the effective distance is smaller than both the threshold and the minimum effective distance
-      if (effectiveDistance < 10 && Math.abs(effectiveDistance) < minDistance) {  // Adjust threshold as needed
+      if (effectiveDistance < 10 && Math.abs(effectiveDistance) < minDistance) {  // Point is within the hole's radius
           closestHole = hole;  // Update the closest hole
           minDistance = Math.abs(effectiveDistance);  // Update the minimum distance
+
       }
   });
-
-  detectedHole = closestHole;  // If you have a global variable for the detected hole
-  console.log('found closes hole at ',closestHole)
+  detectedHole = closestHole;
   return closestHole;
 }
-
 
 
 
