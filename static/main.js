@@ -119,46 +119,57 @@ function editHoleDiameter(diameter, index) {
         .catch(error => console.error('Error updating hole size:', error));
     }
   }
+  function uploadAndLoadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
 
-function uploadAndLoadFile(file) {
-  const formData = new FormData();
-  formData.append('file', file);
+    fetch('http://127.0.0.1:5000/api/upload_file', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Error: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Check if there's an error
+        if (data.error) {
+            console.error('Error from server:', data.error);
+            return;
+        }
 
-  fetch('http://127.0.0.1:5000/api/upload_file', {
-      method: 'POST',
-      body: formData
-  })
-  .then(response => {
-      if (!response.ok) {
-          throw new Error(`Error: ${response.statusText}`);
-      }
-      return response.json();
-  })
-  .then(data => {
-      console.log('STL URLs:', data.stlUrls);
+        // Process the root node
+        const rootNode = data.root_node;
 
-      const loader = new THREE.STLLoader();
+        // Function to traverse the tree and load STL files
+        function traverseAndLoad(node) {
+            if (node.face) {
+                const stlUrl = 'http://127.0.0.1:5000/output/' + node.face;
+                const loader = new THREE.STLLoader();
+                loader.load(stlUrl, function (geometry) {
+                    const material = new THREE.MeshPhongMaterial({ color: 0x0077ff });
+                    const plate = new THREE.Mesh(geometry, material);
+                    plate.scale.set(0.1, 0.1, 0.1);  // Adjust scale if needed
+                    scene.add(plate);
 
-      data.stlUrls.forEach((stlUrl, index) => {
-          loader.load('http://127.0.0.1:5000' + stlUrl, function (geometry) {
-              const material = new THREE.MeshPhongMaterial({ color: 0x0077ff });
-              const plate = new THREE.Mesh(geometry, material);
-              plate.scale.set(0.1, 0.1, 0.1);  // Adjust scale if needed
-              scene.add(plate);
+                    // Store the plate and its holes data
+                    plates.push(plate);
+                    holesData.push(node.hole_data || []);
+                });
+            }
 
-              // Store the plate and its holes data
-              plates.push(plate);
-              if (data.holes_data && data.holes_data[index]) {
-                  holesData.push(data.holes_data[index].hole_data);
-              } else {
-                  holesData.push([]);  // No holes data for this plate
-              }
+            // Recursively process children
+            if (node.children && node.children.length > 0) {
+                node.children.forEach(child => traverseAndLoad(child));
+            }
+        }
 
-          });
-      });
-    console.log('holes are ',holesData)
-  })
-  .catch(error => console.error('Error loading STL:', error));
+        // Start traversing from the root node
+        traverseAndLoad(rootNode);
+    })
+    .catch(error => console.error('Error loading STL:', error));
 }
 
 function add_two_faces() {

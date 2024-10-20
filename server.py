@@ -25,7 +25,6 @@ ALLOWED_EXTENSIONS = {'stl', 'step', 'stp'}
 def serve_output_file(filename):
     return send_from_directory(OUTPUT_DIR, filename)
 
-
 @app.route('/api/upload_file', methods=['POST'])
 def upload_file():
     # Check if the request contains a file
@@ -47,20 +46,33 @@ def upload_file():
             if result.get('error'):
                 return jsonify({'error': result['error']}), 500
 
-            # Generate STL URLs
-            stl_urls = [f"/output/{filename}" for filename in result['stl_filenames']]
+            # Return the root_node as JSON
+            # Serialize the root_node to JSON
+            root_node_json = serialize_node_to_json(result['root_node'])
 
-            # Return STL URLs and holes data
-            return jsonify({
-                'stlUrls': stl_urls,
-                'holes_data': result['holes_data']
-            }), 200
+            return jsonify({'root_node': root_node_json}), 200
 
         # If it's an STL file, return the URL without processing
         elif unique_filename.endswith('.stl'):
             return jsonify({'stlUrls': [f"/output/{unique_filename}"], 'holes_data': []}), 200
 
     return jsonify({'error': 'File type not allowed'}), 400
+
+def serialize_node_to_json(node):
+    # Assuming node has attributes: face_id, face (file path), hole_data, children, etc.
+    node_dict = {
+        'face_id': node.face_id,
+        'face': node.face,  # This is now the STL file path
+        'hole_data': node.hole_data,
+        'surface_type': node.surface_type,
+        'axis': {
+            'x': node.axis.X(),
+            'y': node.axis.Y(),
+            'z': node.axis.Z()
+        } if node.axis else None,
+        'children': [serialize_node_to_json(child) for child in node.children]
+    }
+    return node_dict
 
 # Route to convert STEP to STL
 @app.route('/convert_step_to_stl/<filename>', methods=['GET'])

@@ -47,7 +47,6 @@ def convert_step_to_stl(filename, MODEL_DIR, OUTPUT_DIR):
 
     return stl_path
 
-
 def save_tree_to_stl(root_node, unique_filename, output_dir):
     stl_filenames = []
     holes_data = []
@@ -62,28 +61,31 @@ def save_tree_to_stl(root_node, unique_filename, output_dir):
         stl_filename = f"{unique_filename.rsplit('.', 1)[0]}_{node.face_id}.stl"
         stl_path = os.path.join(output_dir, stl_filename)
 
-        # Assuming `node.face` contains the geometry of the face to be saved
         if node.face is not None:
             if node.surface_type == 'Flat':
                 # Extrude the face to create a solid
                 thickness = 2.0  # Adjust thickness as needed
-                extrusion_vector = gp_Vec(node.axis.XYZ())*thickness  
+                extrusion_vector = gp_Vec(node.axis.XYZ()) * thickness
                 prism_maker = BRepPrimAPI_MakePrism(node.face, extrusion_vector)
                 solid = prism_maker.Shape()
 
-                # Convert the face geometry to STL format and save it
+                # Convert the solid geometry to STL format and save it
                 write_stl_file(solid, stl_path)
                 stl_filenames.append(stl_filename)
-                node.face = solid
-                # Recognize holes and store hole data
-                node.hole_data = recognize_holes_new(node.face)
-                if node.hole_data:
-                    print('{} holes identified in {}'.format(len(node.hole_data),node.face_id))
 
-                holes_data.append({
-                    'face_id': node.face_id,
-                    'hole_data': node.hole_data
-                })
+                # Update node.face to be the STL file path
+                node.face = stl_filename
+
+                # Recognize holes and store hole data
+                node.hole_data = recognize_holes_new(solid)
+                if node.hole_data:
+                    print('{} holes identified in {}'.format(len(node.hole_data), node.face_id))
+
+                # No need to collect holes_data separately since it's stored in node.hole_data
+            else:
+                node.face = None
+                # For non-flat surfaces, you might handle them differently
+                pass
         else:
             print(f"Node {node.face_id} does not have a valid face geometry to save.")
 
@@ -93,22 +95,21 @@ def save_tree_to_stl(root_node, unique_filename, output_dir):
 
     # Start the recursive saving from the root node
     save_node_stl(root_node, unique_filename, output_dir)
-    
-    return stl_filenames, holes_data
 
-    
+    # Return the updated root_node
+    return root_node
+
 
 def process_step_file(file_path, unique_filename, output_dir):
     try:
         # Build and process the tree
         root_node = build_and_process_tree(file_path, cad_view=False, thickness=2.0, min_area=300.0)
 
-        # Save the tree to STL files and collect holes data
-        stl_filenames, holes_data = save_tree_to_stl(root_node, unique_filename, output_dir)
+        # Save the tree to STL files and update nodes
+        root_node = save_tree_to_stl(root_node, unique_filename, output_dir)
 
         return {
-            'stl_filenames': stl_filenames,  # List of STL filenames
-            'holes_data': holes_data         # List of holes data for each face
+            'root_node': root_node
         }
     except Exception as e:
         return {'error': str(e)}
