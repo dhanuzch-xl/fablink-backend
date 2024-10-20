@@ -21,8 +21,6 @@ function init() {
   // Create the scene
   scene = new THREE.Scene();
 
-  // debug
-  add_two_faces()
   const rect = container.getBoundingClientRect();
   // Set up the renderer with the size of the container
   renderer = new THREE.WebGLRenderer();
@@ -119,6 +117,7 @@ function editHoleDiameter(diameter, index) {
         .catch(error => console.error('Error updating hole size:', error));
     }
   }
+
   function uploadAndLoadFile(file) {
     const formData = new FormData();
     formData.append('file', file);
@@ -171,6 +170,7 @@ function editHoleDiameter(diameter, index) {
     })
     .catch(error => console.error('Error loading STL:', error));
 }
+
 
 function add_two_faces() {
   // Define vertices for the horizontal plate (lying flat on the XZ-plane)

@@ -60,11 +60,10 @@ def save_tree_to_stl(root_node, unique_filename, output_dir):
         # Create a unique filename based on node's face_id
         stl_filename = f"{unique_filename.rsplit('.', 1)[0]}_{node.face_id}.stl"
         stl_path = os.path.join(output_dir, stl_filename)
-
+        thickness = 2.0  # Adjust thickness as needed
         if node.face is not None:
             if node.surface_type == 'Flat':
                 # Extrude the face to create a solid
-                thickness = 2.0  # Adjust thickness as needed
                 extrusion_vector = gp_Vec(node.axis.XYZ()) * thickness
                 prism_maker = BRepPrimAPI_MakePrism(node.face, extrusion_vector)
                 solid = prism_maker.Shape()

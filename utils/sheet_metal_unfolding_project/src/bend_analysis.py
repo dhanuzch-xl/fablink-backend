@@ -129,8 +129,8 @@ def calculate_bend_angle(node):
         
         # Handle wrapping by checking if u_max < u_min
     # Normalize the angle to be between -pi and pi
-        angle_diff = u_max - u_min
-        node.bend_angle = (angle_diff + np.pi) % (2 * np.pi) - np.pi
+        node.bend_angle = u_max - u_min
+        #node.bend_angle = (angle_diff + np.pi) % (2 * np.pi) - np.pi
 
 
 def calculate_centre_of_mass(node):

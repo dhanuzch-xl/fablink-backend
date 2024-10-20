@@ -229,6 +229,7 @@ def traverse_and_process_tree(node):
     # Process all child nodes
     for child in node.children:
         traverse_and_process_tree(child)
+
 def read_my_step_file(filename):
     """read the STEP file and returns a compound"""
     step_reader = STEPControl_Reader()
@@ -294,7 +295,7 @@ def main():
     Main function for standalone execution.
     It parses arguments and calls the process_step_file function.
     """
-    # Parse command-line arguments     python your_script.py path/to/your/stepfile.step --thickness 0.2 --cad_view
+    # Parse command-line arguments    python -m src.main '/home/dhanuzch/meher-web-view/models/WP-2.step' --thickness 2.0 --cad_view
     parser = argparse.ArgumentParser(description="Process a STEP file.")
     parser.add_argument("step_file", help="Path to the STEP file")
     parser.add_argument("--thickness", type=float, default=2.0, help="Thickness for processing")

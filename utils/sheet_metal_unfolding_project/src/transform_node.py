@@ -13,23 +13,6 @@ from OCC.Core.GeomAbs import GeomAbs_BSplineSurface
 from . import bend_analysis
 from .face_operations import get_face_normal
 
-def apply_transformation_to_node_and_children(node, transformation):
-    """
-    Recursively apply the given transformation to the current node's face
-    and propagate it to all child nodes.
-
-    Args:
-        node (FaceNode): The current face node to transform.
-        transformation (gp_Trsf): The transformation to apply (rotation).
-    """
-    # Apply transformation to the current face
-    transformed_face = BRepBuilderAPI_Transform(node.face, transformation, True).Shape()
-    node.face = transformed_face  # Update the node's face to the transformed face
-
-    # Recursively apply transformation to all child nodes
-    for child in node.children:
-        apply_transformation_to_node_and_children(child, transformation)
-
 def rotate_box(root_node, angle_in_radians, axis='Z'):
     """
     Rotate the entire box (represented by the root node) by applying
@@ -163,24 +146,18 @@ def angle_between_vectors(v1, v2):
 import numpy as np
 def apply_flatten_transformation(parent_node,b1,b2,bend_angle,bend_radius,bend_axis):
 
+    b1[2] = 0
+    b2[2] = 0
     # Calculate the arc length
     arc_length = bend_radius * bend_angle
 
     # Straightened b2' along the XY plane, using arc length
-    direction_b1_b2 = np.array([b2[0] - b1[0], b2[1] - b1[1], 0])  # Flatten to XY plane
+    direction_b1_b2 = np.array([b2[0] - b1[0], b2[1] - b1[1], b2[2] - b1[2]])  # Flatten to XY plane
     direction_b1_b2_normalized = direction_b1_b2 / np.linalg.norm(direction_b1_b2)
     b2_prime = b1 + direction_b1_b2_normalized * arc_length
 
-    # Compute the rotation angle between b1-b2 and b1-b2'
-    #rotation_angle = angle_between_vectors(b2 - b1, b2_prime - b1)
-    # Compute the rotation axis using the cross product of b1-b2 and b1-b2'
-    #rotation_axis = np.cross(b2 - b1, b2_prime - b1)
-    #rotation_axis = np.array(b1_b2_edge[1])-np.array(b1_b2_edge[0])
-    # Step 3: Convert the rotation axis to a gp_Dir (direction)
-    #rotation_dir = gp_Dir(rotation_axis[0],rotation_axis[1],rotation_axis[2])
-
     translation_vector = b2_prime-b2
-    pivot_center = b2
+    pivot_center = b1
     #rotate
     transformation = gp_Trsf()
     transformation.SetRotation(gp_Ax1(gp_Pnt(pivot_center[0],pivot_center[1],pivot_center[2]), bend_axis), -bend_angle)
