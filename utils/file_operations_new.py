@@ -64,7 +64,7 @@ def save_tree_to_stl(root_node, unique_filename, output_dir):
         if node.face is not None:
             if node.surface_type == 'Flat':
                 # Extrude the face to create a solid
-                extrusion_vector = gp_Vec(node.axis.XYZ()) * thickness
+                extrusion_vector = gp_Vec(0,0,1) * thickness
                 prism_maker = BRepPrimAPI_MakePrism(node.face, extrusion_vector)
                 solid = prism_maker.Shape()
 

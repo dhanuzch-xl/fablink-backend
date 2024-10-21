@@ -3,6 +3,11 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+from OCC.Core.gp import gp_Trsf
+from OCC.Core.GProp import GProp_GProps
+from OCC.Core.BRepGProp import brepgprop_SurfaceProperties
+from OCC.Core.gp import gp_Pnt, gp_Trsf, gp_Vec, gp_Pnt
+from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 
 from OCC.Core.gp import gp_Pnt
 from OCC.Core.BRepBuilderAPI import (
@@ -149,10 +154,12 @@ def unfold_surfaces(plate1,bend,plate2):
     bend_radius = bend.inner_radius
     plate2_COM = plate2.COM  
     bend_axis = bend.axis
-    #flatten_bent_plate(plate1,bend,plate2)
-
-    apply_flatten_transformation(plate2,bend_start_vertex,bend_end_vertex,bend_angle,bend_radius,bend_axis)
-    #create_flatten_plate(bend,plate2,bend_radius,bend_angle)
+    new_bend_end_vertex, transformed_plate2_com = unfold_vertices(plate1_COM, bend_start_vertex, bend_end_vertex, plate2_COM,bend_radius,bend_angle,flatten=True)
+    plate2.vertexDict["center_after_transform"] = new_bend_end_vertex
+    plate2.COM = transformed_plate2_com
+    translation_vector = transformed_plate2_com - plate2_COM
+    apply_flatten_transformation(plate2,translation_vector,transformed_plate2_com,bend_angle,bend_axis)
+    #create_flatten_plate(bend,plate2)
 
 def create_flatten_plate(bend,plate2,bend_radius,bend_angle):
 
@@ -228,12 +235,23 @@ def traverse_and_unfold(node):
                         edge2 = bend_analysis.get_common_vertices(child1, child2)
                         if edge1 and edge2:
                             # Unfold the surfaces based on their parameters and common edges
+                            # print('faces are {}, {}, {} with bend angle {}'.format(node.face_id, child1.face_id, child2.face_id, child1.bend_angle))
+                            # print(f'and before unfold normals are:\n'
+                            #     f'  {node.face_id}: X: {node.axis.X()}, Y: {node.axis.Y()}, Z: {node.axis.Z()}\n'
+                            #     f'  {child1.face_id}: X: {child1.axis.X()}, Y: {child1.axis.Y()}, Z: {child1.axis.Z()}\n'
+                            #     f'  {child2.face_id}: X: {child2.axis.X()}, Y: {child2.axis.Y()}, Z: {child2.axis.Z()}')     
                             unfold_surfaces(node, child1, child2)
-                            print('found_triplets of {}, {}, {} with bend angle {}'.format(node.face_id, child1.face_id, child2.face_id, child1.bend_angle))
+
+                            # print(f'and after unfold normals are:\n'
+                            #     f'  {node.face_id}: X: {node.axis.X()}, Y: {node.axis.Y()}, Z: {node.axis.Z()}\n'
+                            #     f'  {child1.face_id}: X: {child1.axis.X()}, Y: {child1.axis.Y()}, Z: {child1.axis.Z()}\n'
+                            #     f'  {child2.face_id}: X: {child2.axis.X()}, Y: {child2.axis.Y()}, Z: {child2.axis.Z()}')                           
                             # Mark the cylindrical and second flat node as flattened
                             child1.flatten = True
                             child2.flatten = True
                             count = count+1
+                            # if count == 3:
+                            #     return
                             # Recursively process child2 after unfolding
                             traverse_and_unfold(child2)  # Process further descendants of child2
                             # Add the triplet (Flat -> Cylindrical -> Flat) to the list
@@ -244,126 +262,3 @@ def traverse_and_unfold(node):
     for child in node.children:
         if not child.flatten:
             traverse_and_unfold(child)
-
-
-
-
-
-
-
-
-
-
-
-import numpy as np
-from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Vec, gp_Pnt
-
-# Function to compute the tangent vector on a cylindrical surface
-def tangent_at_point_on_cylinder(b1, radius, theta):
-    """
-    Compute the tangent vector at a point on a cylindrical surface.
-    :param b1: 3D point (center of the cylinder)
-    :param radius: Radius of the cylinder
-    :param theta: Angle around the cylinder at the point
-    :return: Tangent vector at the given point
-    """
-    # The tangent vector at a point on the cylinder in the azimuthal (θ) direction
-    tangent = np.array([-radius * np.sin(theta), radius * np.cos(theta), 0])
-    return tangent
-import numpy as np
-
-def calculate_bend_direction(b1, b2, gp_axis, bend_angle):
-    """
-    Calculate the bend direction based on the cylinder axis and points b1 and b2.
-
-    Parameters:
-    - b1, b2: NumPy arrays representing points on the cylinder surface.
-    - axis: NumPy array representing the cylinder's axis (should be a unit vector).
-    - bend_angle: The magnitude of the bend angle (positive number).
-
-    Returns:
-    - The bend angle with the correct sign based on the bend direction.
-    """
-    axis = np.array([gp_axis.X(),gp_axis.Y(),gp_axis.Z()])
-    # Ensure the axis is a unit vector
-    axis = axis / np.linalg.norm(axis)
-
-    # Choose a point on the axis; for simplicity, use the origin
-    C = np.array([0, 0, 0])  # Adjust if the cylinder axis doesn't pass through the origin
-
-    # Compute vectors from C to b1 and b2
-    v1 = b1 - C
-    v2 = b2 - C
-
-    # Project v1 and v2 onto the plane perpendicular to the axis to get normal vectors
-    n1 = v1 - np.dot(v1, axis) * axis
-    n2 = v2 - np.dot(v2, axis) * axis
-
-    # Normalize the normal vectors
-    n1 = n1 / np.linalg.norm(n1)
-    n2 = n2 / np.linalg.norm(n2)
-
-    # Compute cross product of the normal vectors
-    cross = np.cross(n1, n2)
-
-    # Compute dot product of the cross product with the axis
-    dot = np.dot(cross, axis)
-
-    # Determine the bend direction
-    if dot > 0:
-        return bend_angle
-        print("Bend direction: Positive (Counterclockwise)")
-        return bend_angle  # Positive bend angle
-    else:
-        return -bend_angle
-        print("Bend direction: Negative (Clockwise)")
-        return -bend_angle  # Negative bend angle
-
-
-# # Main Code
-
-# plate1_COM = np.array([0, 0,0])  
-# bend_start_vertex = np.array([4.5,0,0])  
-# bend_end_vertex = np.array([5 ,0 , -0.5])  
-# plate2_COM = np.array([5, 0, -5])  
-# bend_radius = 2
-# bend_angle = 1.57
-# new_bend_end_vertex, transformed_plate2_com = unfold_vertices(plate1_COM, bend_start_vertex, bend_end_vertex, plate2_COM,bend_radius,bend_angle,flatten=True)
-
-
-
-# # Visualize using Matplotlib
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-
-# # Plot the original line before the bend
-# ax.plot([plate1_COM[0], bend_start_vertex[0]], [plate1_COM[1], bend_start_vertex[1]], 
-#         [plate1_COM[2], bend_start_vertex[2]], 'b-', label='Original Line')
-
-# # Plot the bend segment (for reference)
-# ax.plot([bend_start_vertex[0], bend_end_vertex[0]], [bend_start_vertex[1], bend_end_vertex[1]], 
-#         [bend_start_vertex[2], bend_end_vertex[2]], 'r--', label='Bend (Circular)')
-
-# # Plot the attached line before straightening
-# ax.plot([bend_end_vertex[0], plate2_COM[0]], [bend_end_vertex[1], plate2_COM[1]], 
-#         [bend_end_vertex[2], plate2_COM[2]], 'm-', label='Attached Line (Before Straightening)')
-
-# # Plot the straightened line
-# ax.plot([bend_start_vertex[0], new_bend_end_vertex[0]], [bend_start_vertex[1], new_bend_end_vertex[1]], 
-#         [bend_start_vertex[2], new_bend_end_vertex[2]], 'g-', label='Straightened Line')
-
-# # Plot the transformed attached line after straightening
-# ax.plot([new_bend_end_vertex[0], transformed_plate2_com[0]], [new_bend_end_vertex[1], transformed_plate2_com[1]], 
-#         [new_bend_end_vertex[2], transformed_plate2_com[2]], 'c--', label='Attached Line (After Straightening)')
-
-
-
-
-# # Set labels
-# ax.set_xlabel('X')
-# ax.set_ylabel('Y')
-# ax.set_zlabel('Z')
-
-# # Show the plot
-# plt.legend()
-# plt.show()

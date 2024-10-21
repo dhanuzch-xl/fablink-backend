@@ -63,24 +63,35 @@ def update_face_params(node):
         bend_analysis.calculate_bend_direction(node)
         bend_analysis.calculate_tangent_vectors(node)  # Calculate tangent vectors for unfolding    
         bend_analysis.calculate_bend_angle(node)
-    
+
+from math import atan2, sqrt
 
 def calculate_rotation_to_align_with_z(normal_vector):
     """
     Calculate the rotation axis and angle needed to align the given normal vector to the positive Z-axis.
+    Handles all quadrants by correctly calculating angle signs.
     """
     z_axis = gp_Vec(0, 0, 1)  # Positive Z-axis
 
     # Convert normal_vector (gp_Dir) to gp_Vec
     normal_vec = gp_Vec(normal_vector.X(), normal_vector.Y(), normal_vector.Z())
 
-    # Calculate the angle between the normal vector and Z-axis
-    angle = acos(normal_vec.Normalized().Dot(z_axis))
+    # Normalize the normal vector
+    normal_vec = normal_vec.Normalized()
 
-    # Calculate the axis of rotation (cross product of normal and Z-axis)
-    rotation_axis = normal_vec.Crossed(z_axis)
-    print('Angle is {} and rotation axis is X: {}, Y: {}, Z: {}'.format(angle, rotation_axis.X(), rotation_axis.Y(), rotation_axis.Z()))
-    return angle, rotation_axis
+    # Calculate the angle using dot product and cross product to handle direction
+    dot_product = normal_vec.Dot(z_axis)
+    cross_product = normal_vec.Crossed(z_axis)
+
+    # Calculate the angle using atan2 (more robust for all quadrants)
+    angle = atan2(cross_product.Magnitude(), dot_product)
+
+    # If the rotation axis is very small, enforce a specific axis (X-axis, for example)
+    if cross_product.Magnitude() < 1e-6:
+        cross_product = gp_Vec(1, 0, 0)  # Arbitrary fallback axis
+
+    return angle, cross_product
+
 
 
 def apply_transformation_to_node_and_children(node, transformation):
@@ -144,27 +155,39 @@ def angle_between_vectors(v1, v2):
 
 
 import numpy as np
-def apply_flatten_transformation(parent_node,b1,b2,bend_angle,bend_radius,bend_axis):
+# def apply_flatten_transformation(parent_node,b1,b2,bend_angle,bend_radius,bend_axis):
 
-    b1[2] = 0
-    b2[2] = 0
-    # Calculate the arc length
-    arc_length = bend_radius * bend_angle
+#     b1[2] = 0
+#     b2[2] = 0
+#     # Calculate the arc length
+#     arc_length = bend_radius * bend_angle
 
-    # Straightened b2' along the XY plane, using arc length
-    direction_b1_b2 = np.array([b2[0] - b1[0], b2[1] - b1[1], b2[2] - b1[2]])  # Flatten to XY plane
-    direction_b1_b2_normalized = direction_b1_b2 / np.linalg.norm(direction_b1_b2)
-    b2_prime = b1 + direction_b1_b2_normalized * arc_length
+#     # Straightened b2' along the XY plane, using arc length
+#     direction_b1_b2 = np.array([b2[0] - b1[0], b2[1] - b1[1], b2[2] - b1[2]])  # Flatten to XY plane
+#     direction_b1_b2_normalized = direction_b1_b2 / np.linalg.norm(direction_b1_b2)
+#     b2_prime = b1 + direction_b1_b2_normalized * arc_length
 
-    translation_vector = b2_prime-b2
-    pivot_center = b1
-    #rotate
+#     translation_vector = b2_prime-b2
+#     pivot_center = b1
+#     #translate
+#     transformation = gp_Trsf()
+#     transformation.SetTranslation(gp_Vec(translation_vector[0], translation_vector[1], translation_vector[2]))
+#     apply_transformation_to_node_and_children(parent_node, transformation)
+#     #rotate
+#     transformation = gp_Trsf()
+#     transformation.SetRotation(gp_Ax1(gp_Pnt(pivot_center[0],pivot_center[1],pivot_center[2]), bend_axis), -bend_angle)
+#     apply_transformation_to_node_and_children(parent_node, transformation)
+
+def apply_flatten_transformation(parent_node,translation_vector,pivot_center,bend_angle,bend_axis):
+
+    transformation = gp_Trsf()
+    #Step 6: Set the translation in the gp_Trsf object
+    transformation.SetTranslation(gp_Vec(translation_vector[0], translation_vector[1], translation_vector[2]))
+    # Step 5: Apply the transformation to the root node and all child nodes
+    apply_transformation_to_node_and_children(parent_node, transformation)
+    # Step 4: Create the transformation
     transformation = gp_Trsf()
     transformation.SetRotation(gp_Ax1(gp_Pnt(pivot_center[0],pivot_center[1],pivot_center[2]), bend_axis), -bend_angle)
-    apply_transformation_to_node_and_children(parent_node, transformation)
-    #translate
-    transformation = gp_Trsf()
-    transformation.SetTranslation(gp_Vec(translation_vector[0], translation_vector[1], translation_vector[2]))
     apply_transformation_to_node_and_children(parent_node, transformation)
 
 def unwrap_cylindrical_face(node):
