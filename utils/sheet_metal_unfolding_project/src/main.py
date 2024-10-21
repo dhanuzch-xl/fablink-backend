@@ -4,6 +4,15 @@ from OCC.Core.STEPControl import STEPControl_Reader
 from OCC.Core.IFSelect import IFSelect_RetDone, IFSelect_ItemsByEntity
 from OCC.Extend.TopologyUtils import TopologyExplorer
 import numpy as np
+
+from OCC.Core.TopoDS import TopoDS_Shape
+from OCC.Core.TopExp import TopExp_Explorer
+from OCC.Core.TopAbs import TopAbs_FACE
+from OCC.Core.GeomAbs import GeomAbs_Plane, GeomAbs_Cylinder
+from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+
+
+
 #imports for cad viewer
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
@@ -21,7 +30,45 @@ from .step_processor import  process_faces_connected_to_base,assign_face_id
 from . import bend_analysis
 from .transform_node import align_box_root_to_z_axis ,unwrap_cylindrical_face
 from .unfold import traverse_and_unfold
+from .check_shape import calculate_sheet_metal_thickness_using_wires
 debug_identified_faces = False
+
+def inspect_shape(shape):
+    """
+    Determine if the given shape is likely to be a sheet metal part.
+    :param shape: The shape (loaded from STEP or other formats)
+    :param thickness_threshold: Threshold for maximum thickness (in mm) to be considered sheet metal
+    :return: True if the shape is sheet metal, False otherwise
+    """
+    bends = 0
+    flats = 0
+    unknown=0
+
+    face_explorer = TopExp_Explorer(shape, TopAbs_FACE)
+
+    while face_explorer.More():
+        face = face_explorer.Current()
+        surface = BRepAdaptor_Surface(face)
+        surf_type = surface.GetType()
+        
+        if surf_type == GeomAbs_Plane:
+            bends = bends+1
+        elif surf_type == GeomAbs_Cylinder:
+            flats = flats+1
+        else:
+            unknown+=1
+        face_explorer.Next()
+
+    # Analyze flat faces and bends
+   # If no bends, no flats, return False
+    if not bends and not flats:
+        return False, unknown
+    # If bends and flats with no unknowns, or only flats with no unknowns, return True
+    if (bends and flats and not unknown) or (flats and not bends and not unknown):
+        return True, unknown
+    # If only bends and no flats, or any unknowns present with bends or flats, return False
+    if (bends and not flats) or unknown:
+        return False, unknown
 
 
 
@@ -270,9 +317,23 @@ def build_and_process_tree(file_path,cad_view=False, thickness=2.0, min_area=300
     # Read the STEP file
     shape = read_my_step_file(file_path)
 
+    #calculate thickness
+    thickness_found = calculate_sheet_metal_thickness_using_wires(shape)
+    print('found thickness as ',thickness_found)
+    #if sheet metal or not 
+    if thickness_found:
+        is_sheet_metal, unknown = inspect_shape(shape)
+        thickness = thickness_found
+        if is_sheet_metal and not unknown:
+            print('this is {}mm sheet metal'.format(round(thickness_found)))
+        if is_sheet_metal and unknown:
+            print('found {} unknown type surfaces so suggest inspection'.format(unknown))
+        if not is_sheet_metal:
+            print('not a sheet_metal')
+
     # Build tree out of shape
     faces, root_node = build_tree(shape, thickness, min_area)
-
+    #root_node.is_sheet_metal = is_sheet_metal
     # Align box root to the z-axis
     align_box_root_to_z_axis(root_node)
 

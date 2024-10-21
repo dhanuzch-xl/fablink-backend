@@ -272,3 +272,4 @@ def find_faces_with_thickness(all_faces, thickness, min_area=300, tolerance=1e-6
     if not plates:
         print("No plates found with the specified thickness.")
     return plates
+
