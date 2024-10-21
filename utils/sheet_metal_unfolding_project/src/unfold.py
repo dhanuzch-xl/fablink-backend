@@ -121,7 +121,7 @@ def transform_attached_line(bend_end_vertex, new_bend_end_vertex, plate2_COM, pa
 
 
 
-def unfold_vertices(plate1_COM, bend_start, bend_end, plate2_COM, bend_radius=2, bend_angle= 1.570796326794896,flatten = False):
+def unfold_vertices(plate1_COM, bend_edge, bend_start, bend_end, plate2_COM, bend_radius=2, bend_angle= 1.570796326794896,flatten = False):
     """
     This function combines the logic of straightening the bend and transforming the attached line.
     It handles both bend and planar surfaces based on the surface_type argument.
@@ -143,8 +143,11 @@ def unfold_vertices(plate1_COM, bend_start, bend_end, plate2_COM, bend_radius=2,
     else:
         bend_length = distance_between_points(bend_start,bend_end)
     new_bend_end_vertex = np.array(bend_start) + direction_vector * bend_length
+    new_bend_end_0 = np.array(bend_edge[0]) +  direction_vector * bend_length
+    new_bend_end_1 = np.array(bend_edge[1]) + + direction_vector * bend_length
     new_line_end_vertex = transform_attached_line(bend_end, new_bend_end_vertex, plate2_COM, direction_vector,flatten)
-    return new_bend_end_vertex, new_line_end_vertex
+    transformed_plate2_edge = [list(new_bend_end_0),list(new_bend_end_1)]
+    return new_bend_end_vertex, new_line_end_vertex,transformed_plate2_edge
 
 def unfold_surfaces(plate1,bend,plate2):
     plate1_COM = plate1.COM
@@ -154,13 +157,16 @@ def unfold_surfaces(plate1,bend,plate2):
     bend_radius = bend.inner_radius
     plate2_COM = plate2.COM  
     bend_axis = bend.axis
-    new_bend_end_vertex, transformed_plate2_com = unfold_vertices(plate1_COM, bend_start_vertex, bend_end_vertex, plate2_COM,bend_radius,bend_angle,flatten=True)
+    bend_edge = bend.vertexDict['after_unfld']
+
+    new_bend_end_vertex, transformed_plate2_com,transformed_plate2_edge = unfold_vertices(plate1_COM, bend_edge,bend_start_vertex, bend_end_vertex, plate2_COM,bend_radius,bend_angle,flatten=True)
     plate2.vertexDict["center_after_transform"] = new_bend_end_vertex
     plate2.COM = transformed_plate2_com
     translation_vector = transformed_plate2_com - plate2_COM
     apply_flatten_transformation(plate2,translation_vector,transformed_plate2_com,bend_angle,bend_axis)
-    #create_flatten_plate(bend,plate2)
-
+    plate2.vertexDict['after_unfld'] = transformed_plate2_edge
+    bend.flatten_edges = [bend_edge,transformed_plate2_edge]
+    
 def create_flatten_plate(bend,plate2,bend_radius,bend_angle):
 
     edge1 = bend.vertexDict['after_unfld']

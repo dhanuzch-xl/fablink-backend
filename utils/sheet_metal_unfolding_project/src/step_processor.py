@@ -60,6 +60,7 @@ class FaceNode:
         self.flatten = False # True if flattened
         self.prev_transformation = None # store prev_transformation to reverse it
         self.hole_data = None
+        self.flatten_edges = None
     def add_child(self, child_face):
         """Add a child to this face node."""
         child_node = FaceNode(child_face)

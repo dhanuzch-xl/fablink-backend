@@ -145,6 +145,8 @@ function editHoleDiameter(diameter, index) {
         // Function to traverse the tree and load STL files
         function traverseAndLoad(node) {
             if (node.face) {
+              if(node.surface_type == "Flat"){
+                console.log('found_flat plate')
                 const stlUrl = 'http://127.0.0.1:5000/output/' + node.face;
                 const loader = new THREE.STLLoader();
                 loader.load(stlUrl, function (geometry) {
@@ -157,6 +159,11 @@ function editHoleDiameter(diameter, index) {
                     plates.push(plate);
                     holesData.push(node.hole_data || []);
                 });
+              }
+            }
+            if(node.surface_type == "Cylindrical"){
+              console.log('found_cylindrical plate')
+              create_flat_plate(node.flatten_edges);
             }
 
             // Recursively process children
@@ -171,6 +178,35 @@ function editHoleDiameter(diameter, index) {
     .catch(error => console.error('Error loading STL:', error));
 }
 
+function create_flat_plate(edges) {
+  const edge1 = edges[0];
+  const edge2 = edges[1];
+
+  // Create vertices from the edges
+  const face1Vertices = [
+    new THREE.Vector3(edge1[0][0], edge1[0][1], edge1[0][2]),    // First point of edge1
+    new THREE.Vector3(edge1[1][0], edge1[1][1], edge1[1][2]),    // Second point of edge1
+    new THREE.Vector3(edge2[1][0], edge2[1][1], edge2[1][2]),    // Second point of edge2
+    new THREE.Vector3(edge2[0][0], edge2[0][1], edge2[0][2]),    // First point of edge2
+  ];
+
+  // Create a geometry for the face (quad)
+  const face1Geometry = new THREE.BufferGeometry().setFromPoints(face1Vertices);
+  
+  // Create indices for two triangles forming a quad
+  const indices = [0, 1, 2, 2, 3, 0];
+  face1Geometry.setIndex(indices);
+
+  // Create the material
+  const face1Material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
+
+  // Create the mesh
+  const face1Mesh = new THREE.Mesh(face1Geometry, face1Material);
+  // Scale down the mesh to 0.1 in x, y, and z directions
+  face1Mesh.scale.set(0.1, 0.1, 0.1);
+  // Add the mesh to the scene
+  scene.add(face1Mesh);
+}
 
 function add_two_faces() {
   // Define vertices for the horizontal plate (lying flat on the XZ-plane)

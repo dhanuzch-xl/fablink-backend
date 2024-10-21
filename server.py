@@ -4,7 +4,7 @@ from werkzeug.utils import secure_filename
 import uuid
 from utils.file_operations_new import allowed_file, convert_step_to_stl, process_step_file, save_uploaded_file, read_step, write_step, write_step_to_stl
 from utils.hole_operations import modify_hole_size
-
+import numpy as np
 
 app = Flask(__name__, static_folder='static')
 # Route to serve the index.html file
@@ -58,13 +58,16 @@ def upload_file():
 
     return jsonify({'error': 'File type not allowed'}), 400
 
+
 def serialize_node_to_json(node):
+
     # Assuming node has attributes: face_id, face (file path), hole_data, children, etc.
     node_dict = {
         'face_id': node.face_id,
         'face': node.face,  # This is now the STL file path
         'hole_data': node.hole_data,
         'surface_type': node.surface_type,
+        'flatten_edges': node.flatten_edges,  # Convert ndarray to list
         'axis': {
             'x': node.axis.X(),
             'y': node.axis.Y(),
@@ -72,6 +75,7 @@ def serialize_node_to_json(node):
         } if node.axis else None,
         'children': [serialize_node_to_json(child) for child in node.children]
     }
+    
     return node_dict
 
 # Route to convert STEP to STL
