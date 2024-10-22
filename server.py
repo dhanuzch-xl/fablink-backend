@@ -42,7 +42,7 @@ def upload_file():
 
         # If it's a STEP file, process it
         if unique_filename.endswith(('.step', '.stp')):
-            result = process_step_file(file_path, unique_filename, OUTPUT_DIR)
+            result = process_step_file(file_path, OUTPUT_DIR)
             if result.get('error'):
                 return jsonify({'error': result['error']}), 500
 
@@ -64,10 +64,12 @@ def serialize_node_to_json(node):
     # Assuming node has attributes: face_id, face (file path), hole_data, children, etc.
     node_dict = {
         'face_id': node.face_id,
-        'face': node.face,  # This is now the STL file path
+        'face': node.stlpath,  # This is now the STL file path
+        'unfold_face': node.unfold_stlpath,
         'hole_data': node.hole_data,
+        'unfold_hole_data':node.unfold_hole_data,
         'surface_type': node.surface_type,
-        'flatten_edges': node.flatten_edges,  # Convert ndarray to list
+        'flatten_edges': node.flatten_edges,  # common edge vertices after flattening to create plates
         'axis': {
             'x': node.axis.X(),
             'y': node.axis.Y(),

@@ -323,7 +323,7 @@ def build_and_process_tree(file_path,cad_view=False, thickness=2.0, min_area=300
     #if sheet metal or not 
     if thickness_found:
         is_sheet_metal, unknown = inspect_shape(shape)
-        thickness = thickness_found
+        thickness = round(thickness_found)
         if is_sheet_metal and not unknown:
             print('this is {}mm sheet metal'.format(round(thickness_found)))
         if is_sheet_metal and unknown:
@@ -340,8 +340,7 @@ def build_and_process_tree(file_path,cad_view=False, thickness=2.0, min_area=300
     # Traverse and process tree
     traverse_and_process_tree(root_node)
 
-    # Unwrap shape
-    traverse_and_unfold(root_node)  # from unfold_multy.py
+    #unfold_tree(root_node)
 
     # Optionally, show the CAD view
     if cad_view:
@@ -350,6 +349,10 @@ def build_and_process_tree(file_path,cad_view=False, thickness=2.0, min_area=300
         start_display()
 
     return root_node
+
+def unfold_tree(root_node):
+    # Unwrap shape
+    traverse_and_unfold(root_node)  # from unfold_multy.py
 
 def main():
     """

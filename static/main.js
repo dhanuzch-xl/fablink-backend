@@ -10,9 +10,9 @@ let highlightedEdge = null; // Keeps track of the currently
 let selectedEdges = [];  // Initialize the selectedEdges array
 let lockedDropdownItem = null;  // Track the locked dropdown item
 let detectedHole = null; // Track the detected hole for selection
+let flatten = true;
 plates = []
 holesData = []
-
 
 function init() {
   const container = document.getElementById('container');
@@ -70,9 +70,6 @@ function init() {
   // Start the animation loop
   animate();
 }
-
-
-
 
 function editHoleDiameter(diameter, index) {
     const newDiameter = prompt(`Enter new diameter for hole with current diameter ${diameter} mm:`, diameter);
@@ -142,40 +139,57 @@ function editHoleDiameter(diameter, index) {
         // Process the root node
         const rootNode = data.root_node;
 
-        // Function to traverse the tree and load STL files
-        function traverseAndLoad(node) {
-            if (node.face) {
-              if(node.surface_type == "Flat"){
-                console.log('found_flat plate')
-                const stlUrl = 'http://127.0.0.1:5000/output/' + node.face;
-                const loader = new THREE.STLLoader();
-                loader.load(stlUrl, function (geometry) {
-                    const material = new THREE.MeshPhongMaterial({ color: 0x0077ff });
-                    const plate = new THREE.Mesh(geometry, material);
-                    plate.scale.set(0.1, 0.1, 0.1);  // Adjust scale if needed
-                    scene.add(plate);
-
-                    // Store the plate and its holes data
-                    plates.push(plate);
-                    holesData.push(node.hole_data || []);
-                });
-              }
-            }
-            if(node.surface_type == "Cylindrical"){
-              console.log('found_cylindrical plate')
-              create_flat_plate(node.flatten_edges);
-            }
-
-            // Recursively process children
-            if (node.children && node.children.length > 0) {
-                node.children.forEach(child => traverseAndLoad(child));
-            }
-        }
-
         // Start traversing from the root node
         traverseAndLoad(rootNode);
+
+
     })
     .catch(error => console.error('Error loading STL:', error));
+}
+
+
+// Function to traverse the tree and load STL files
+function traverseAndLoad(node) {
+  if (!flatten) {
+      const stlUrl = 'http://127.0.0.1:5000/output/' + node.face;
+      const loader = new THREE.STLLoader();
+      loader.load(stlUrl, function (geometry) {
+          const material = new THREE.MeshPhongMaterial({ color: 0x0077ff });
+          const plate = new THREE.Mesh(geometry, material);
+          plate.scale.set(0.1, 0.1, 0.1);  // Adjust scale if needed
+          scene.add(plate);
+
+          // Store the plate and its holes data
+          plates.push(plate);
+          holesData.push(node.hole_data || []);
+      });
+  }
+  if(flatten){
+    if(node.surface_type == "Cylindrical"){
+      console.log('found_cylindrical plate')
+      create_flat_plate(node.flatten_edges);
+    }
+    else{
+      const stlUrl = 'http://127.0.0.1:5000/output/' + node.unfold_face;
+      const loader = new THREE.STLLoader();
+      loader.load(stlUrl, function (geometry) {
+      const material = new THREE.MeshPhongMaterial({ color: 0x0077ff });
+      const plate = new THREE.Mesh(geometry, material);
+      plate.scale.set(0.1, 0.1, 0.1);  // Adjust scale if needed
+      scene.add(plate);
+
+      // Store the plate and its holes data
+      plates.push(plate);
+      holesData.push(node.unfold_hole_data || []);
+    });
+
+    }
+  }
+  // Recursively process children
+  if (node.children && node.children.length > 0) {
+      node.children.forEach(child => traverseAndLoad(child));
+  }
+
 }
 
 function create_flat_plate(edges) {
