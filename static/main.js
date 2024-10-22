@@ -318,159 +318,6 @@ function showBoundingBox(boundingBox) {
   console.log("Bounding box has been added to the scene.");
 }
 
-//----------------------------------------------------------------------------------------------------------------------------
-
-
-function add_two_faces() {
-  // Define vertices for the horizontal plate (lying flat on the XZ-plane)
-  const face1Vertices = [
-      new THREE.Vector3(0, 0, 0),    // Face 1 Vertex 0 (XZ-plane)
-      new THREE.Vector3(4.5, 0, 0),  // Face 1 Vertex 1 (XZ-plane)
-      new THREE.Vector3(4.5, 0, 5),  // Face 1 Vertex 2 (XZ-plane)
-      new THREE.Vector3(0, 0, 5)     // Face 1 Vertex 3 (XZ-plane)
-  ];
-
-  // Define vertices for the vertical plate (standing on the YZ-plane)
-  const face2Vertices = [
-      new THREE.Vector3(5, 0.5, 0),    // Face 2 Vertex 0 (YZ-plane)
-      new THREE.Vector3(5, 5.5, 0),    // Face 2 Vertex 1 (YZ-plane)
-      new THREE.Vector3(5, 5.5, 5),    // Face 2 Vertex 2 (YZ-plane)
-      new THREE.Vector3(5, 0.5, 5)     // Face 2 Vertex 3 (YZ-plane)
-  ];
-
-  // Create mesh for the horizontal plate (Face 1)
-  const face1Geometry = createQuadFace(face1Vertices);
-  const face1Material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
-  const face1Mesh = new THREE.Mesh(face1Geometry, face1Material);
-  scene.add(face1Mesh);
-
-  // Create mesh for the vertical plate (Face 2)
-  const face2Geometry = createQuadFace(face2Vertices);
-  const face2Material = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
-  const face2Mesh = new THREE.Mesh(face2Geometry, face2Material);
-  scene.add(face2Mesh);
-
-  // Add parametric cylinder to connect the edges
-  const cylinderGeometry = new THREE.ParametricGeometry(parametricCylinder, 100, 100);
-  const cylinderMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide });
-  const cylinderMesh = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
-  scene.add(cylinderMesh);
-}
-
-// Parametric function for the cylindrical surface between the two edges of the faces
-function parametricCylinder(u, v, target) {
-  // Edge to connect on face1 (XZ-plane)
-  const edge1Start = new THREE.Vector3(4.5, 0, 0);  // Edge 1 of face 1 (XZ-plane)
-  const edge1End = new THREE.Vector3(4.5, 0, 5);    // Edge 2 of face 1 (XZ-plane)
-
-  // Edge to connect on face2 (YZ-plane)
-  const edge2Start = new THREE.Vector3(5, 0.5, 0);  // Edge 1 of face 2 (YZ-plane)
-  const edge2End = new THREE.Vector3(5, 0.5, 5);    // Edge 2 of face 2 (YZ-plane)
-
-  // Interpolate along the edges
-  const edge1Point = new THREE.Vector3().lerpVectors(edge1Start, edge1End, u);  // Point on edge 1
-  const edge2Point = new THREE.Vector3().lerpVectors(edge2Start, edge2End, u);  // Point on edge 2
-
-  // Calculate the midpoint between the edges
-  const midPoint = new THREE.Vector3().lerpVectors(edge1Point, edge2Point, v);
-
-  // Calculate the distance between the two edges (in Y-axis)
-  const edgeDistance = edge2Start.distanceTo(edge1Start);  // Distance between the two edges
-
-  // Ensure smooth start and end of curvature
-  const smoothFactor = (Math.cos((u - 0.5) * Math.PI) + 1) / 2;  // Smooth start and end transitions
-
-  // Adjust the curvature smoothly between the two faces with smoothFactor applied
-  const curveHeight = edgeDistance * smoothFactor * Math.sin(v * Math.PI);  // Adjusted smooth curvature
-
-  // Set the target position for the parametric surface point
-  target.set(midPoint.x, midPoint.y - curveHeight, midPoint.z);  // Elevate in Y direction based on calculated curvature
-}
-
-// Function to create a quad face (geometry)
-function createQuadFace(vertices) {
-  const geometry = new THREE.BufferGeometry();
-  const positions = [];
-  vertices.forEach(vertex => {
-      positions.push(vertex.x, vertex.y, vertex.z);
-  });
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-
-  // Define indices for two triangles to form the quad
-  const indices = [0, 1, 2, 2, 3, 0];
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-
-  return geometry;
-}
-
-
-function unwrapCylindricalSurface(face1Vertices, face2Vertices, curveHeight) {
-  const unwrappedVertices = [];
-
-  // For unwrapping, we map the cylindrical surface to a flat rectangle
-  const circumference = 2 * Math.PI * curveHeight;  // The "length" of the unwrapped cylinder
-  const height = 10;  // The height of the cylinder (distance between face1 and face2)
-
-  // Unwrapping each edge of the cylindrical surface as if it's being flattened
-  const uSegments = 100;  // Number of horizontal segments for the unwrapping
-  const vSegments = 10;   // Number of vertical segments
-
-  for (let i = 0; i <= uSegments; i++) {
-      const u = i / uSegments;
-      const x = u * circumference;  // The unwrapped "length" mapped onto the X-axis
-
-      for (let j = 0; j <= vSegments; j++) {
-          const v = j / vSegments;
-          const y = v * height;  // The height mapped to the Y-axis
-
-          // For unwrapping, we set z = 0 (flattened)
-          unwrappedVertices.push(new THREE.Vector3(x, y, 0));
-      }
-  }
-
-  return unwrappedVertices;
-}
-
-function unwrapFullShape(face1Vertices, face2Vertices, curveHeight) {
-  // Unwrap the cylindrical surface into a flat plane
-  const unwrappedCylinder = unwrapCylindricalSurface(face1Vertices, face2Vertices, curveHeight);
-
-  // Project the upper plate onto the unwrapped surface
-  const unwrappedUpperPlate = flattenUpperPlate(face2Vertices);  // Use the flattening logic
-
-  // Combine both unwrapped cylinder and upper plate
-  const allUnwrappedVertices = [...unwrappedCylinder, ...unwrappedUpperPlate];
-
-  // Create a geometry from the unwrapped shape
-  const geometry = new THREE.BufferGeometry();
-  const positions = [];
-
-  allUnwrappedVertices.forEach(vertex => {
-      positions.push(vertex.x, vertex.y, vertex.z);
-  });
-
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.computeVertexNormals();  // Compute normals for correct shading
-
-  // Create a material and mesh for the unwrapped shape
-  const material = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(geometry, material);
-  scene.add(mesh);
-}
-
-// Function to flatten the upper plate onto the XY-plane
-function flattenUpperPlate(vertices) {
-  return vertices.map(vertex => {
-      return new THREE.Vector3(vertex.x, vertex.y, 0);  // Set Z = 0 for flattening
-  });
-}
-
-
-
-
-
-
   document.getElementById('container').addEventListener('click', (event) => {
     let hasHoleHighlighted = highlightedHoleMesh !== null;
     let hasEdgeHighlighted = highlightedEdge !== null;
@@ -546,7 +393,7 @@ function onMouseMove(event) {
          showTooltip(event, closestHole);
         } else {
           removeHighlightFromModel();
-          //removeHighlightFromDropdown();  // Remove highlight if no hole is detected
+            // Remove highlight if no hole is detected
           //clearHoleInfo();  // Clear hole info if no hole is detected
           hideTooltip();
         }
@@ -560,13 +407,13 @@ function onMouseMove(event) {
         } 
     } else {
       removeHighlightFromModel();
-      //removeHighlightFromDropdown();
+      
       removeHighlightFromEdge();  // Remove highlight if no edge is detected
       hideTooltip();
     }
   } else {
     removeHighlightFromModel();
-    //removeHighlightFromDropdown();
+    
     removeHighlightFromEdge();  // Remove highlight if no edge is detected
     hideTooltip();
   }
@@ -657,37 +504,6 @@ function showTooltip(event, hole) {
   }
 
 
-// Function to highlight the corresponding hole in the dropdown
-function highlightHoleInDropdown(hole) {
-    const holeDataContainer = document.getElementById('hole-data');
-    const dropdownSections = holeDataContainer.getElementsByClassName('dropdown-section');
-
-    // Remove existing highlights
-    removeHighlightFromDropdown();
-
-    // Loop through dropdown sections and highlight the matching hole
-    Array.from(dropdownSections).forEach((section) => {
-        const holeItems = section.getElementsByTagName('li');
-        Array.from(holeItems).forEach((item) => {
-            if (item.textContent.includes(`(${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})`)) {
-                item.style.backgroundColor = 'yellow';  // Highlight the corresponding hole
-                lockedDropdownItem = item;  // Lock this item
-            }
-        });
-    });
-}
-
-// Function to remove the highlight from the dropdown
-function removeHighlightFromDropdown() {
-    const holeDataContainer = document.getElementById('hole-data');
-    const highlightedItems = holeDataContainer.querySelectorAll('li[style*="background-color"]');
-
-    // Remove the background color from all highlighted items
-    Array.from(highlightedItems).forEach(item => {
-        item.style.backgroundColor = '';
-    });
-}
-
 // Function to highlight the hole in the 3D model
 function highlightHoleInModel(hole) {
   // Remove previous highlight if it exists
@@ -726,7 +542,7 @@ function toggleHoleLock(hole) {
         // Unlock the hole if it was already selected
         selectedHole = null;
         removeHighlightFromModel();
-        //removeHighlightFromDropdown();
+        
         hideStudUploadOptions();       // Show "Stud Upload" and "Edit Diameter" when a hole is selected
         //hideWeldFoldOptions();  
 
@@ -929,7 +745,6 @@ function updateHoleInModel(holeIndex, newDiameter) {
 }
 
 
-
 function onWindowResize() {
   const container = document.getElementById('container');
   const rect = container.getBoundingClientRect();
@@ -998,6 +813,7 @@ function processHoleData(holes) {
       });
   }
 }
+
 // Function to display hole information in the hole-data container
 function displayHoleInfo(hole) {
     const holeDataContainer = document.getElementById('hole-data');
