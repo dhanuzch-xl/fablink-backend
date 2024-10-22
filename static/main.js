@@ -10,9 +10,18 @@ let highlightedEdge = null; // Keeps track of the currently
 let selectedEdges = [];  // Initialize the selectedEdges array
 let lockedDropdownItem = null;  // Track the locked dropdown item
 let detectedHole = null; // Track the detected hole for selection
-let flatten = true;
-plates = []
-holesData = []
+let scaling = 0.1
+// Initialize arrays to store plates and holes data
+const plates = [];
+const holesData = [];
+
+// Initialize counters to track loading progress
+let totalPlates = 0;
+let loadedPlates = 0;
+  // Optional: Create a group to manage all plates
+const platesGroup = new THREE.Group();
+
+
 
 function init() {
   const container = document.getElementById('container');
@@ -51,6 +60,7 @@ function init() {
   const axesHelper = new THREE.AxesHelper(10);
   scene.add(axesHelper);
 
+  scene.add(platesGroup);
 
   // File input handler
   const fileInput = document.getElementById('file-input');
@@ -138,89 +148,175 @@ function editHoleDiameter(diameter, index) {
 
         // Process the root node
         const rootNode = data.root_node;
-
         // Start traversing from the root node
-        traverseAndLoad(rootNode);
-
-
+        traverseAndLoad(rootNode,data,flatten=true);
     })
     .catch(error => console.error('Error loading STL:', error));
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
 
-// Function to traverse the tree and load STL files
-function traverseAndLoad(node) {
+
+// Function to traverse the tree and load/create plates
+function traverseAndLoad(node,dataObj,flatten = true) {
   if (!flatten) {
-      const stlUrl = 'http://127.0.0.1:5000/output/' + node.face;
-      const loader = new THREE.STLLoader();
-      loader.load(stlUrl, function (geometry) {
-          const material = new THREE.MeshPhongMaterial({ color: 0x0077ff });
-          const plate = new THREE.Mesh(geometry, material);
-          plate.scale.set(0.1, 0.1, 0.1);  // Adjust scale if needed
-          scene.add(plate);
-
-          // Store the plate and its holes data
-          plates.push(plate);
-          holesData.push(node.hole_data || []);
-      });
-  }
-  if(flatten){
-    if(node.surface_type == "Cylindrical"){
-      console.log('found_cylindrical plate')
+    // Asynchronous plate loading
+    totalPlates++;
+    loadPlate(node.face, node.hole_data,dataObj);
+  } else {
+    if (node.surface_type === "Cylindrical") {
+      console.log('Found cylindrical plate');
+      // Increment totalPlates for the plate being created synchronously
+      totalPlates++;
       create_flat_plate(node.flatten_edges);
-    }
-    else{
-      const stlUrl = 'http://127.0.0.1:5000/output/' + node.unfold_face;
-      const loader = new THREE.STLLoader();
-      loader.load(stlUrl, function (geometry) {
-      const material = new THREE.MeshPhongMaterial({ color: 0x0077ff });
-      const plate = new THREE.Mesh(geometry, material);
-      plate.scale.set(0.1, 0.1, 0.1);  // Adjust scale if needed
-      scene.add(plate);
-
-      // Store the plate and its holes data
-      plates.push(plate);
-      holesData.push(node.unfold_hole_data || []);
-    });
-
+      // Increment loadedPlates immediately since creation is synchronous
+      loadedPlates++;
+      checkAllPlatesLoaded(dataObj);
+    } else {
+      // Asynchronous plate loading for non-cylindrical plates
+      totalPlates++;
+      loadPlate(node.unfold_face, node.unfold_hole_data,dataObj);
     }
   }
-  // Recursively process children
+
+  // Recursively process children with the same flatten flag
   if (node.children && node.children.length > 0) {
-      node.children.forEach(child => traverseAndLoad(child));
+    node.children.forEach(child => traverseAndLoad(child, flatten));
   }
-
 }
 
+// Helper function to load a single plate
+function loadPlate(face, holeData,dataObj) {
+  const stlUrl = `http://127.0.0.1:5000/output/${face}`;
+  const loader = new THREE.STLLoader();
+
+  loader.load(
+    stlUrl,
+    function (geometry) {
+      const material = new THREE.MeshPhongMaterial({ color: 0x0077ff });
+      const plate = new THREE.Mesh(geometry, material);
+      plate.scale.set(scaling, scaling, scaling);  // Adjust scale if needed
+      platesGroup.add(plate); // Add to group
+      plates.push(plate);
+      holesData.push(holeData || []);
+
+      loadedPlates++;
+      console.log(`Loaded plate: ${face} (${loadedPlates}/${totalPlates})`);
+      checkAllPlatesLoaded(dataObj);
+    },
+    undefined,
+    function (error) {
+      console.error(`Error loading STL file from ${stlUrl}:`, error);
+      loadedPlates++;
+      checkAllPlatesLoaded(dataObj);  // Even if a plate fails to load, proceed
+    }
+  );
+}
+
+// Function to create a flat plate synchronously
 function create_flat_plate(edges) {
   const edge1 = edges[0];
   const edge2 = edges[1];
 
   // Create vertices from the edges
   const face1Vertices = [
-    new THREE.Vector3(edge1[0][0], edge1[0][1], edge1[0][2]),    // First point of edge1
-    new THREE.Vector3(edge1[1][0], edge1[1][1], edge1[1][2]),    // Second point of edge1
-    new THREE.Vector3(edge2[1][0], edge2[1][1], edge2[1][2]),    // Second point of edge2
-    new THREE.Vector3(edge2[0][0], edge2[0][1], edge2[0][2]),    // First point of edge2
+    new THREE.Vector3(edge1[0][0], edge1[0][1], edge1[0][2]), // First point of edge1
+    new THREE.Vector3(edge1[1][0], edge1[1][1], edge1[1][2]), // Second point of edge1
+    new THREE.Vector3(edge2[1][0], edge2[1][1], edge2[1][2]), // Second point of edge2
+    new THREE.Vector3(edge2[0][0], edge2[0][1], edge2[0][2]), // First point of edge2
   ];
 
   // Create a geometry for the face (quad)
   const face1Geometry = new THREE.BufferGeometry().setFromPoints(face1Vertices);
-  
+
   // Create indices for two triangles forming a quad
   const indices = [0, 1, 2, 2, 3, 0];
   face1Geometry.setIndex(indices);
 
+  // Compute normals for proper lighting (important for materials like MeshPhongMaterial)
+  face1Geometry.computeVertexNormals();
+
   // Create the material
-  const face1Material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
+  const face1Material = new THREE.MeshPhongMaterial({ color: 0xff0000, side: THREE.DoubleSide });
 
   // Create the mesh
   const face1Mesh = new THREE.Mesh(face1Geometry, face1Material);
+
   // Scale down the mesh to 0.1 in x, y, and z directions
-  face1Mesh.scale.set(0.1, 0.1, 0.1);
-  // Add the mesh to the scene
-  scene.add(face1Mesh);
+  face1Mesh.scale.set(scaling, scaling, scaling);
+
+  // Optionally, set a name or user data for identification
+  face1Mesh.name = "FlatPlate";
+
+  // Add the mesh to the plates group
+  platesGroup.add(face1Mesh);
+
+  // Store the plate in the plates array
+  plates.push(face1Mesh);
+
+  // Since create_flat_plate is synchronous, you can also add hole data if available
+  // For example, if edges contain hole data, modify accordingly
+  holesData.push([]); // Assuming no hole data for flat plates; adjust as needed
+
+  console.log('Flat plate created and added to the scene.');
 }
+
+// Function to check if all plates have been loaded
+function checkAllPlatesLoaded(dataObj) {
+  if (loadedPlates === totalPlates) {
+    console.log("All plates have been loaded or created!");
+    scene.updateMatrixWorld(true); // Ensure all world matrices are updated
+    const finalBoundingBox = getBoundingBoxForPlates(); // Calculate bounding box
+    showBoundingBox(finalBoundingBox);                // Show the bounding box in the scene
+    // Update the data object with box_size based on the bounding box
+    dataObj.box_size = {
+      width: (finalBoundingBox.max.x - finalBoundingBox.min.x)/scaling,
+      height: (finalBoundingBox.max.y - finalBoundingBox.min.y)/scaling,
+      depth: (finalBoundingBox.max.z - finalBoundingBox.min.z)/scaling
+    };
+
+    // Calculate the 2D bounding box (X-Y plane) and update dataObj.flat_size
+    dataObj.flat_size = {
+      width: dataObj.box_size.width,
+      height: dataObj.box_size.height
+    };
+
+    console.log('Data object updated with bounding box:', dataObj);
+  }
+}
+
+// Function to calculate the bounding box dimensions for the added plates
+function getBoundingBoxForPlates() {
+  const boundingBox = new THREE.Box3().setFromObject(platesGroup);  // Create bounding box from group
+
+  // Calculate the size of the final bounding box
+  const size = new THREE.Vector3();
+  boundingBox.getSize(size);
+
+  console.log('Bounding box size:', size);
+  console.log('Bounding box min:', boundingBox.min);
+  console.log('Bounding box max:', boundingBox.max);
+
+  return boundingBox;
+}
+
+// Function to visualize the bounding box in the scene
+function showBoundingBox(boundingBox) {
+  // Remove any existing bounding boxes to prevent duplicates
+  const existingHelpers = scene.children.filter(child => child.type === "Box3Helper");
+  existingHelpers.forEach(helper => scene.remove(helper));
+
+  // Create a Box3Helper to visualize the bounding box
+  const boxHelper = new THREE.Box3Helper(boundingBox, 0xffff00);  // Yellow color
+
+  // Add the box helper to the scene
+  scene.add(boxHelper);
+
+  console.log("Bounding box has been added to the scene.");
+}
+
+//----------------------------------------------------------------------------------------------------------------------------
+
 
 function add_two_faces() {
   // Define vertices for the horizontal plate (lying flat on the XZ-plane)
@@ -792,7 +888,7 @@ function reloadModifiedModel(stlUrl) {
   loader.load(stlUrl, function (geometry) {
       const material = new THREE.MeshPhongMaterial({ color: 0x0077ff, specular: 0x111111, shininess: 200 });
       plate = new THREE.Mesh(geometry, material);
-      plate.scale.set(0.1, 0.1, 0.1);  // Adjust scaling if necessary
+      plate.scale.set(scaling, scaling, scaling);  // Adjust scaling if necessary
       scene.add(plate);
       console.log('Updated STL model loaded and added to the scene.');
   }, 
