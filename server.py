@@ -74,15 +74,6 @@ def serialize_node_to_json(node):
             'x': node.axis.X(),
             'y': node.axis.Y(),
             'z': node.axis.Z()
-        },
-        'box_size': {  # Added fields for 3D bounding box dimensions
-        'width': None,   # To be updated with actual width
-        'height': None,  # To be updated with actual height
-        'depth': None    # To be updated with actual depth
-        },
-        'flat_size': {  # Added fields for 2D bounding box dimensions
-            'width': None,   # To be updated with actual width
-            'height': None   # To be updated with actual height
         } if node.axis else None,
             'children': [serialize_node_to_json(child) for child in node.children]
     }

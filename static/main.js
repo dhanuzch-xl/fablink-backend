@@ -125,40 +125,45 @@ function editHoleDiameter(diameter, index) {
     }
   }
 
-  function uploadAndLoadFile(file) {
-    const formData = new FormData();
-    formData.append('file', file);
+// Update the traverseAndLoad call to await its completion
+async function uploadAndLoadFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
 
-    fetch('http://127.0.0.1:5000/api/upload_file', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`Error: ${response.statusText}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        // Check if there's an error
-        if (data.error) {
-            console.error('Error from server:', data.error);
-            return;
-        }
+  try {
+    const response = await fetch('http://127.0.0.1:5000/api/upload_file', {
+      method: 'POST',
+      body: formData
+    });
 
-        // Process the root node
-        const rootNode = data.root_node;
-        // Start traversing from the root node
-        traverseAndLoad(rootNode,data,flatten=true);
-    })
-    .catch(error => console.error('Error loading STL:', error));
+    if (!response.ok) {
+      throw new Error(`Error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    // Check if there's an error
+    if (data.error) {
+      console.error('Error from server:', data.error);
+      return;
+    }
+
+    const rootNode = data.root_node;
+    // Process the root node and await traversal
+    await traverseAndLoad(rootNode, data, true);
+
+    console.log('All plates loaded and data object updated.');
+    console.log('Received data object:', data); // Verify the received data
+
+  } catch (error) {
+    console.error('Error loading STL:', error);
+  }
 }
-
 //------------------------------------------------------------------------------------------------------------------------------
 
 
 // Function to traverse the tree and load/create plates
-function traverseAndLoad(node,dataObj,flatten = true) {
+async function traverseAndLoad(node,dataObj,flatten = true) {
   if (!flatten) {
     // Asynchronous plate loading
     totalPlates++;
@@ -181,36 +186,41 @@ function traverseAndLoad(node,dataObj,flatten = true) {
 
   // Recursively process children with the same flatten flag
   if (node.children && node.children.length > 0) {
-    node.children.forEach(child => traverseAndLoad(child, flatten));
+    for (const child of node.children) {
+      await traverseAndLoad(child, dataObj, flatten);
+    }  
   }
 }
 
 // Helper function to load a single plate
 function loadPlate(face, holeData,dataObj) {
-  const stlUrl = `http://127.0.0.1:5000/output/${face}`;
-  const loader = new THREE.STLLoader();
+  return new Promise((resolve, reject)=>{
+    const stlUrl = `http://127.0.0.1:5000/output/${face}`;
+    const loader = new THREE.STLLoader();
 
-  loader.load(
-    stlUrl,
-    function (geometry) {
-      const material = new THREE.MeshPhongMaterial({ color: 0x0077ff });
-      const plate = new THREE.Mesh(geometry, material);
-      plate.scale.set(scaling, scaling, scaling);  // Adjust scale if needed
-      platesGroup.add(plate); // Add to group
-      plates.push(plate);
-      holesData.push(holeData || []);
+    loader.load(
+      stlUrl,
+      function (geometry) {
+        const material = new THREE.MeshPhongMaterial({ color: 0x0077ff });
+        const plate = new THREE.Mesh(geometry, material);
+        plate.scale.set(scaling, scaling, scaling);  // Adjust scale if needed
+        platesGroup.add(plate); // Add to group
+        plates.push(plate);
+        holesData.push(holeData || []);
 
-      loadedPlates++;
-      console.log(`Loaded plate: ${face} (${loadedPlates}/${totalPlates})`);
-      checkAllPlatesLoaded(dataObj);
-    },
-    undefined,
-    function (error) {
-      console.error(`Error loading STL file from ${stlUrl}:`, error);
-      loadedPlates++;
-      checkAllPlatesLoaded(dataObj);  // Even if a plate fails to load, proceed
-    }
-  );
+        loadedPlates++;
+        console.log(`Loaded plate: ${face} (${loadedPlates}/${totalPlates})`);
+        checkAllPlatesLoaded(dataObj);
+      },
+      undefined,
+      function (error) {
+        console.error(`Error loading STL file from ${stlUrl}:`, error);
+        loadedPlates++;
+        checkAllPlatesLoaded(dataObj);  // Even if a plate fails to load, proceed
+        resolve(); // Resolve to continue processing
+      }
+    );
+  });
 }
 
 // Function to create a flat plate synchronously
@@ -269,18 +279,11 @@ function checkAllPlatesLoaded(dataObj) {
     const finalBoundingBox = getBoundingBoxForPlates(); // Calculate bounding box
     showBoundingBox(finalBoundingBox);                // Show the bounding box in the scene
     // Update the data object with box_size based on the bounding box
-    dataObj.box_size = {
+    dataObj.root_node.box_size = {
       width: (finalBoundingBox.max.x - finalBoundingBox.min.x)/scaling,
       height: (finalBoundingBox.max.y - finalBoundingBox.min.y)/scaling,
       depth: (finalBoundingBox.max.z - finalBoundingBox.min.z)/scaling
     };
-
-    // Calculate the 2D bounding box (X-Y plane) and update dataObj.flat_size
-    dataObj.flat_size = {
-      width: dataObj.box_size.width,
-      height: dataObj.box_size.height
-    };
-
     console.log('Data object updated with bounding box:', dataObj);
   }
 }
