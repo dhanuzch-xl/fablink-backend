@@ -23,8 +23,6 @@ def recognize_hole_faces(step_file):
                 holes.append(hole_data)
     return holes
 
-
-
 def recognize_holes(a_face):
     if not isinstance(a_face, TopoDS_Face):
         return None
@@ -94,6 +92,7 @@ from OCC.Core.GeomAbs import GeomAbs_Cylinder
 from OCC.Core.Bnd import Bnd_Box
 from OCC.Core.BRepBndLib import brepbndlib
 from OCC.Core.TopAbs import TopAbs_INTERNAL
+
 def recognize_holes_new(a_shape):
     if not isinstance(a_shape, TopoDS_Shape):
         return None

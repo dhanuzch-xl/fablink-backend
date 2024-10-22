@@ -131,9 +131,9 @@ async function uploadAndLoadFile(file) {
   const formData = new FormData();
   formData.append('file', file);
   // Use the appropriate base URL depending on the devop_mode
-  const stlUrl = devop_mode 
-      ? 'http://127.0.0.1:5000' + data.stlUrl
-      : 'https://justmfgflaskapp.azurewebsites.net/' + data.stlUrl;
+  const apiUrl = devop_mode 
+      ? 'http://127.0.0.1:5000/api/upload_file'
+      : 'https://justmfgflaskapp.azurewebsites.net/api/upload_file';
   try {
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -199,8 +199,9 @@ async function traverseAndLoad(node,dataObj,flatten = true) {
 // Helper function to load a single plate
 function loadPlate(face, holeData,dataObj) {
   return new Promise((resolve, reject)=>{
-    const stlUrl = `http://127.0.0.1:5000/output/${face}`;
-    
+    const stlUrl = devop_mode 
+      ? `http://127.0.0.1:5000/output/${face}` 
+      : `https://justmfgflaskapp.azurewebsites.net/output/${face}`;    
     const loader = new THREE.STLLoader();
 
     loader.load(
@@ -284,11 +285,12 @@ function checkAllPlatesLoaded(dataObj) {
     const finalBoundingBox = getBoundingBoxForPlates(); // Calculate bounding box
     showBoundingBox(finalBoundingBox);                // Show the bounding box in the scene
     // Update the data object with box_size based on the bounding box
-    dataObj.root_node.box_size = {
+    dataObj.params.box_dim = {
       width: (finalBoundingBox.max.x - finalBoundingBox.min.x)/scaling,
       height: (finalBoundingBox.max.y - finalBoundingBox.min.y)/scaling,
       depth: (finalBoundingBox.max.z - finalBoundingBox.min.z)/scaling
     };
+    dataObj.params.flat_area = dataObj.params.box_dim.width*dataObj.params.box_dim.height;
     console.log('Data object updated with bounding box:', dataObj);
   }
 }

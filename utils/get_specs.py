@@ -15,6 +15,9 @@ from OCC.Core.BRepTools import breptools_Read
 from OCC.Core.gp import gp_Pnt
 from OCC.Extend.TopologyUtils import TopologyExplorer
 from OCC.Display.SimpleGui import init_display
+from OCC.Core.TopAbs import TopAbs_EDGE
+from OCC.Core.TopoDS import topods  # Corrected the import here
+from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
 
 
 # user libraries
@@ -29,13 +32,17 @@ def get_faces(shape):
     return faces
 
 # Function to compute the area of a face
-def get_face_area(face):
+def total_face_area(faces):
     """
     Compute and return the area of a given face.
     """
     props = GProp_GProps()
-    brepgprop.SurfaceProperties(face, props)
-    area = props.Mass()
+    total_area = 0.0
+    for face in faces:
+        brepgprop.SurfaceProperties(face, props)
+        area = props.Mass()
+        total_area += area
+    print(f"Total surface area: {total_area} square units")
     return area
 
 
@@ -100,46 +107,64 @@ def calculate_hole_circumference(hole):
     circumference = math.pi * diameter
     return circumference
 
+def get_edges(shape):
+    """Return the edges from `shape`."""
+    explorer = TopExp_Explorer(shape, TopAbs_EDGE)
+    edges = []
+
+    while explorer.More():
+        edges.append(topods.Edge(explorer.Current()))
+        explorer.Next()
+
+    return edges
+
+
+def edge_to_dict(edge):
+    """Convert an edge into a dictionary containing the start and end points."""
+    # Get the actual start and end points of the edge using BRepAdaptor_Curve
+    curve_adaptor = BRepAdaptor_Curve(edge)
+
+    # Get the curve's first and last parameters (t1, t2)
+    t1 = curve_adaptor.FirstParameter()
+    t2 = curve_adaptor.LastParameter()
+
+    # Initialize points to store the start and end
+    start_point = gp_Pnt()
+    end_point = gp_Pnt()
+
+    # Evaluate the curve at t1 (start) and t2 (end) to get the 3D points
+    curve_adaptor.D0(t1, start_point)  # Evaluates at t1, stores in start_point
+    curve_adaptor.D0(t2, end_point)    # Evaluates at t2, stores in end_point
+
+    # Return the start and end points in dictionary format
+    return {
+        "start": {"x": start_point.X(), "y": start_point.Y(), "z": start_point.Z()},
+        "end": {"x": end_point.X(), "y": end_point.Y(), "z": end_point.Z()}
+    }
+
+def num_bends_and_holes(node, bends=0, holes=0):
+    holes_data = node.hole_data
+    if holes_data:
+        holes += len(holes_data)
+    if node.surface_type == "Cylindrical":
+        bends += 1
+    for child in node.children:
+        child_bends, child_holes = num_bends_and_holes(child)
+        bends += child_bends
+        holes += child_holes
+    return bends, holes
+
 # Function to calculate the total laser travel length
-def calculate_total_laser_length(edges, holes_data, include_hole_depth=False):
-    """
-    Calculate the total laser travel length along edges and holes.
-
-    Parameters:
-    - shape: The TopoDS_Shape object representing the geometry.
-    - holes_data: List of hole dictionaries.
-    - include_hole_depth: Boolean indicating whether to include hole depth in the calculation.
-
-    Returns:
-    - total_length: Total laser travel length.
-    """
+def total_laser_length(shape):
+    #get edges
+    edges = get_edges(shape)
     # Calculate total edge length
     total_edge_length = 0.0
-    for index, edge in enumerate(edges, start=1):
+    for edge in edges:
         length = calculate_edge_length(edge)
         total_edge_length += length
-        print(f"Edge {index} length: {length}")
-
-    # Calculate total hole length
-    total_hole_length = 0.0
-    for index, hole in enumerate(holes_data, start=1):
-        circumference = calculate_hole_circumference(hole)
-        hole_length = circumference
-        if include_hole_depth:
-            # If the laser drills down the depth of the hole
-            depth = hole["depth"]
-            hole_length += depth
-            print(f"Hole {index} at {hole['position']} circumference: {circumference}, depth: {depth}")
-        else:
-            print(f"Hole {index} at {hole['position']} circumference: {circumference}")
-        total_hole_length += hole_length
-
-    total_length = total_edge_length + total_hole_length
-    print(f"Total edge length: {total_edge_length}")
-    print(f"Total hole length: {total_hole_length}")
-    print(f"Total laser travel length: {total_length}")
-
-    return total_length
+    print(f"Total laser travel length: {total_edge_length}")
+    return total_edge_length
 
 
 def count_cylindrical_surfaces_from_faces(faces):
@@ -161,12 +186,6 @@ def count_cylindrical_surfaces_from_faces(faces):
 def process_shape(shape,edges,holes_data):
     # Sum of areas of all faces
     faces = get_faces(shape)
-    total_area = 0.0
-    for face in faces:
-        area = get_face_area(face)
-        total_area += area
-    print(f"Total surface area: {total_area} square units")
-
 
     # Number of cylindrical surfaces
     num_cylinders = len(holes_data)

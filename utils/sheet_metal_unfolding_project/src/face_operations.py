@@ -273,3 +273,11 @@ def find_faces_with_thickness(all_faces, thickness, min_area=300, tolerance=1e-6
         print("No plates found with the specified thickness.")
     return plates
 
+def get_face_area(face):
+    """
+    Compute and return the area of a given face.
+    """
+    props = GProp_GProps()
+    brepgprop.SurfaceProperties(face, props)
+    area = props.Mass()
+    return area

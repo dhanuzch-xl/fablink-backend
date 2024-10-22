@@ -25,7 +25,7 @@ from OCC.Core.AIS import AIS_Shape
 from OCC.Core.TopoDS import TopoDS_Vertex
 
 #custom libraries 
-from .face_operations import find_faces_with_thickness, get_face_normal
+from .face_operations import find_faces_with_thickness, get_face_normal, get_face_area
 from .step_processor import  process_faces_connected_to_base,assign_face_id
 from . import bend_analysis
 from .transform_node import align_box_root_to_z_axis ,unwrap_cylindrical_face
@@ -42,7 +42,7 @@ def inspect_shape(shape):
     """
     bends = 0
     flats = 0
-    unknown=0
+    unknown_surfaces=0
 
     face_explorer = TopExp_Explorer(shape, TopAbs_FACE)
 
@@ -56,19 +56,19 @@ def inspect_shape(shape):
         elif surf_type == GeomAbs_Cylinder:
             flats = flats+1
         else:
-            unknown+=1
+            unknown_surfaces+=1
         face_explorer.Next()
 
     # Analyze flat faces and bends
    # If no bends, no flats, return False
     if not bends and not flats:
-        return False, unknown
+        return False, unknown_surfaces
     # If bends and flats with no unknowns, or only flats with no unknowns, return True
-    if (bends and flats and not unknown) or (flats and not bends and not unknown):
-        return True, unknown
+    if (bends and flats and not unknown_surfaces) or (flats and not bends and not unknown_surfaces):
+        return True, unknown_surfaces
     # If only bends and no flats, or any unknowns present with bends or flats, return False
-    if (bends and not flats) or unknown:
-        return False, unknown
+    if (bends and not flats) or unknown_surfaces:
+        return False, unknown_surfaces
 
 
 
@@ -254,6 +254,7 @@ def process_face_node(node):
     bend_analysis.analyze_surface_type(node)  # Update surface type (e.g., planar, cylindrical)
     bend_analysis.analyze_edges_and_vertices(node)  # Analyze both edges and vertices
     node.axis = get_face_normal(node.face)
+    node.face_area = get_face_area(node.face)
     bend_analysis.calculate_centre_of_mass(node)
     # If the node represents a cylindrical surface, calculate the bend center
     if node.surface_type == "Cylindrical":
@@ -301,6 +302,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def build_and_process_tree(file_path,cad_view=False, thickness=2.0, min_area=300.0):
+    is_sheet_metal=None
+    thickness=None
+    faces=None
+    root_node =None
     """
     Function to process the STEP file and return results.
     
@@ -317,30 +322,24 @@ def build_and_process_tree(file_path,cad_view=False, thickness=2.0, min_area=300
     # Read the STEP file
     shape = read_my_step_file(file_path)
 
-    #calculate thickness
-    thickness_found = calculate_sheet_metal_thickness_using_wires(shape)
-    print('found thickness as ',thickness_found)
+    is_sheet_metal, unknown_surfaces = inspect_shape(shape)
+
+
     #if sheet metal or not 
-    if thickness_found:
-        is_sheet_metal, unknown = inspect_shape(shape)
+    if is_sheet_metal:
+        #calculate thickness
+        thickness_found = calculate_sheet_metal_thickness_using_wires(shape)
+        print('found thickness as ',thickness_found)
         thickness = round(thickness_found)
-        if is_sheet_metal and not unknown:
+        if is_sheet_metal and not unknown_surfaces:
             print('this is {}mm sheet metal'.format(round(thickness_found)))
-        if is_sheet_metal and unknown:
-            print('found {} unknown type surfaces so suggest inspection'.format(unknown))
+            faces,root_node = build_tree(shape, thickness, min_area)
+            align_box_root_to_z_axis(root_node)
+            traverse_and_process_tree(root_node)
+        if is_sheet_metal and unknown_surfaces:
+            print('found {} unknown_surfaces type surfaces so suggest inspection'.format(unknown_surfaces))
         if not is_sheet_metal:
             print('not a sheet_metal')
-
-    # Build tree out of shape
-    faces, root_node = build_tree(shape, thickness, min_area)
-    #root_node.is_sheet_metal = is_sheet_metal
-    # Align box root to the z-axis
-    align_box_root_to_z_axis(root_node)
-
-    # Traverse and process tree
-    traverse_and_process_tree(root_node)
-
-    #unfold_tree(root_node)
 
     # Optionally, show the CAD view
     if cad_view:
@@ -348,7 +347,7 @@ def build_and_process_tree(file_path,cad_view=False, thickness=2.0, min_area=300
         display_cad(display, root_node=root_node)
         start_display()
 
-    return root_node
+    return is_sheet_metal,thickness,faces,root_node 
 
 def unfold_tree(root_node):
     # Unwrap shape

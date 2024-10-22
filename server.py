@@ -54,8 +54,7 @@ def upload_file():
             # Return the root_node as JSON
             # Serialize the root_node to JSON
             root_node_json = serialize_node_to_json(result['root_node'])
-
-            return jsonify({'root_node': root_node_json}), 200
+            return jsonify({'root_node': root_node_json,'params':result['params']}), 200
 
         # If it's an STL file, return the URL without processing
         elif unique_filename.endswith('.stl'):

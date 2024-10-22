@@ -41,6 +41,7 @@ class FaceNode:
     def __init__(self, face):
         self.face = face
         self.face_id = None
+        self.face_area = []
         self.children = []
         self.edges = []  # Edges connected to the face
         self.vertices = []  # Vertices connected to the face
@@ -64,6 +65,7 @@ class FaceNode:
         self.unfold_hole_data = None
         self.stlpath = None
         self.unfold_stlpath = None
+
     def add_child(self, child_face):
         """Add a child to this face node."""
         child_node = FaceNode(child_face)

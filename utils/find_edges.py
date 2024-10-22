@@ -34,6 +34,8 @@ def get_edges(shape):
 
     return edges
 
+
+
 def tag_edge(_edge, msg, _color=(1, 0, 0)):
     """Tag an edge."""
     center_pt = get_aligned_boundingbox(_edge)[0]
