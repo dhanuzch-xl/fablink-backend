@@ -2,15 +2,11 @@ import os
 from flask import Flask, send_file, jsonify, request, send_from_directory
 from werkzeug.utils import secure_filename
 import uuid
-from utils.file_operations_new import allowed_file, convert_step_to_stl, process_step_file, save_uploaded_file, read_step, write_step, write_step_to_stl
+from utils.file_operations import allowed_file, convert_step_to_stl, process_step_file, save_uploaded_file, read_step, write_step, write_step_to_stl
 from utils.hole_operations import modify_hole_size
-import numpy as np
+
 
 app = Flask(__name__, static_folder='static')
-
-# Set secret key for session management
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your_default_secret_key')
-
 # Route to serve the index.html file
 @app.route('/')
 def index():
@@ -20,7 +16,6 @@ def index():
 @app.route('/static/<path:path>')
 def send_static(path):
     return send_from_directory('static', path)
-
 # Path to the models and output directory
 MODEL_DIR = os.path.join(os.getcwd(), 'models')
 OUTPUT_DIR = os.path.join(os.getcwd(), 'output')
@@ -29,6 +24,7 @@ ALLOWED_EXTENSIONS = {'stl', 'step', 'stp'}
 @app.route('/output/<path:filename>')
 def serve_output_file(filename):
     return send_from_directory(OUTPUT_DIR, filename)
+
 
 @app.route('/api/upload_file', methods=['POST'])
 def upload_file():
@@ -45,45 +41,24 @@ def upload_file():
         # Save the uploaded file using a utility function
         unique_filename, file_path = save_uploaded_file(file, OUTPUT_DIR)
 
-        # If it's a STEP file, process it
+        # If it's a STEP file, process it (convert to STL, extract hole and edge data)
         if unique_filename.endswith(('.step', '.stp')):
-            result = process_step_file(file_path, OUTPUT_DIR)
+            result = process_step_file(file_path, unique_filename, OUTPUT_DIR)
             if result.get('error'):
                 return jsonify({'error': result['error']}), 500
 
-            # Return the root_node as JSON
-            # Serialize the root_node to JSON
-            root_node_json = serialize_node_to_json(result['root_node'])
-
-            return jsonify({'root_node': root_node_json}), 200
+            # Return STL URL and extracted hole and edge data
+            return jsonify({
+                'stlUrl': f"/output/{result['stl_filename']}",
+                'holes': result['holes'],
+                'edges': result['edges']
+            }), 200
 
         # If it's an STL file, return the URL without processing
         elif unique_filename.endswith('.stl'):
-            return jsonify({'stlUrls': [f"/output/{unique_filename}"], 'holes_data': []}), 200
+            return jsonify({'stlUrl': f"/output/{unique_filename}", 'holes': []}), 200
 
     return jsonify({'error': 'File type not allowed'}), 400
-
-
-def serialize_node_to_json(node):
-
-    # Assuming node has attributes: face_id, face (file path), hole_data, children, etc.
-    node_dict = {
-        'face_id': node.face_id,
-        'face': node.stlpath,  # This is now the STL file path
-        'unfold_face': node.unfold_stlpath,
-        'hole_data': node.hole_data,
-        'unfold_hole_data':node.unfold_hole_data,
-        'surface_type': node.surface_type,
-        'flatten_edges': node.flatten_edges,  # common edge vertices after flattening to create plates
-        'axis': {
-            'x': node.axis.X(),
-            'y': node.axis.Y(),
-            'z': node.axis.Z()
-        } if node.axis else None,
-            'children': [serialize_node_to_json(child) for child in node.children]
-    }
-    
-    return node_dict
 
 # Route to convert STEP to STL
 @app.route('/convert_step_to_stl/<filename>', methods=['GET'])
@@ -93,6 +68,7 @@ def convert_to_stl(filename):
         return send_file(stl_path, as_attachment=False)
     except FileNotFoundError as e:
         return jsonify({"error": str(e)}), 404
+
 
 @app.route('/api/upload_stud', methods=['POST'])
 def upload_and_place_stud():
@@ -127,6 +103,7 @@ def upload_and_place_stud():
 
     app.logger.error("File type not allowed")
     return jsonify({'error': 'File type not allowed'}), 400
+
 
 @app.route('/api/change_hole_size', methods=['POST'])
 def change_hole_size():
@@ -163,6 +140,8 @@ def change_hole_size():
         "modified_step_file": f"/output/{os.path.basename(modified_step_path)}",
         "modified_stl_file": f"/output/{os.path.basename(modified_stl_path)}"
     }), 200
+
+
 
 if __name__ == '__main__':
     if not os.path.exists(MODEL_DIR):

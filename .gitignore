@@ -1,5 +1,10 @@
 utils/sheet_metal_unfolding_project/data/*
+models/*
 output/*
+*.png
+utils/sheet_metal_unfolding_project/data
+node_modules
+# images
 *.png
 # Python related
 *.pyc
@@ -27,3 +32,118 @@ __pycache__/
 # Ignore virtual environments
 venv/
 .env/
+.vscode/launch.json
+utils/sheet_metal_unfolding_project/highlighted_surfaces.png
+# Ignore build output directories
+output/*
+dist/
+build/
+
+# Ignore configuration/environment files
+*.env
+.env
+
+# Ignore temporary files and auto-generated files
+*.log
+*.json  # Optional: Ignore all temporary JSON files
+*.lock  # Ignore lock files from package managers like npm/yarn
+*.tmp   # Temporary files
+*.bak   # Backup files
+*.swp   # Swap files
+
+# Node.js related
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json  # Optional: Ignore if lock files should not be committed
+
+# Typescript related
+*.tsbuildinfo
+*.map  # Source maps
+
+# Ignore Webpack and other bundler outputs
+.cache/
+.cache-loader/
+coverage/  # Ignore test coverage reports
+
+# Python related
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.db
+*.sqlite3
+*.ipynb_checkpoints/  # For Jupyter notebooks
+
+# Ignore virtual environments
+venv/
+.env/
+.vscode/launch.json
+
+# Ignore images or other binary files that don't need to be in version control
+utils/sheet_metal_unfolding_project/highlighted_surfaces.png
+
+# IDE/editor related
+.idea/
+.vscode/
+.DS_Store  # macOS specific
+Thumbs.db  # Windows specific
+
+# Build tools like Parcel or Webpack
+.parcel-cache/
+webpack-stats.json
+coverage/  # Ignore test coverage results
+# Ignore node_modules folder irrespective of its location
+node_modules/
+
+# Ignore package lock files (npm and yarn)
+package-lock.json
+yarn.lock
+
+# Ignore server-side map files
+*.map
+
+# Ignore any other temporary files
+*.tmp
+*.log
+*.bak
+*.swp
+*.lock
+
+# Ignore Webpack and other bundler outputs
+dist/
+.cache/
+.parcel-cache/
+coverage/
+webpack-stats.json
+
+# Ignore build output directories
+output/
+build/
+
+# Ignore configuration/environment files
+.env
+*.env
+
+# Python related
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.db
+*.sqlite3
+*.ipynb_checkpoints/  # For Jupyter notebooks
+
+# Ignore virtual environments
+venv/
+
+# IDE/editor related
+.idea/
+.vscode/
+.DS_Store  # macOS specific
+Thumbs.db  # Windows specific
+
+# Ignore specific files
+server.js.map
+utils/sheet_metal_unfolding_project/highlighted_surfaces.png

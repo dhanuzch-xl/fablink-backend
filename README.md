@@ -6,20 +6,22 @@ specs from server
     params = {'flat_area':1000,'perimeter':perimeter,'num_holes':num_cylinders,'box_dim':[x_max-x_min,y_max-y_min,z_max-z_min],'is_sheet':is_sheet,'area':total_area, 'num_bends':num_bends,'thickness':thickness}
 
 TODO:
-flaten the goemetry - Note that step files vertical axis could be Y or Z axis
-Need undo facility. Create list of operations and when the tile of operation is closed that should undo the change in stl file.
-inverse stud
-painting
-report generation for human operator
-welding and folding specifications
-have to clean imports in server.py
-if the file is already an STL file, it’s directly returned without hole extraction. Have to change it.
+flaten the goemetry - Note that step files vertical axis could be Y or Z axis.
+inverse stud.
+painting operation.
+factory report update.
+welding and folding specifications.
+If the file is already an STL file, it’s directly returned without hole extraction. Have to change it.
 Need to check for non circular holes.
 Keep in mind that corrdinates of both the edges are necessary for operations to work.
 scaling factor variable used to map holes and rendering should be global setting.
 
 Add Loading Indicators:
     On the frontend, add visual cues like spinners or progress bars while files are uploading or being processed.
+
+
+Resources
+https://github.com/shaise/FreeCAD_SheetMetal/tree/master?tab=readme-ov-file
 
 
 

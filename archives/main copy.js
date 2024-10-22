@@ -10,17 +10,6 @@ let highlightedEdge = null; // Keeps track of the currently
 let selectedEdges = [];  // Initialize the selectedEdges array
 let lockedDropdownItem = null;  // Track the locked dropdown item
 let detectedHole = null; // Track the detected hole for selection
-let devop_mode = true;
-let scaling = 0.1
-// Initialize arrays to store plates and holes data
-const plates = [];
-const holesData = [];
-
-// Initialize counters to track loading progress
-let totalPlates = 0;
-let loadedPlates = 0;
-  // Optional: Create a group to manage all plates
-const platesGroup = new THREE.Group();
 
 
 
@@ -31,6 +20,8 @@ function init() {
   // Create the scene
   scene = new THREE.Scene();
 
+  // debug
+  add_two_faces()
   const rect = container.getBoundingClientRect();
   // Set up the renderer with the size of the container
   renderer = new THREE.WebGLRenderer();
@@ -61,7 +52,6 @@ function init() {
   const axesHelper = new THREE.AxesHelper(10);
   scene.add(axesHelper);
 
-  scene.add(platesGroup);
 
   // File input handler
   const fileInput = document.getElementById('file-input');
@@ -81,6 +71,9 @@ function init() {
   // Start the animation loop
   animate();
 }
+
+
+
 
 function editHoleDiameter(diameter, index) {
     const newDiameter = prompt(`Enter new diameter for hole with current diameter ${diameter} mm:`, diameter);
@@ -126,202 +119,191 @@ function editHoleDiameter(diameter, index) {
     }
   }
 
-// Update the traverseAndLoad call to await its completion
-async function uploadAndLoadFile(file) {
-  const formData = new FormData();
-  formData.append('file', file);
-  // Use the appropriate base URL depending on the devop_mode
-  const stlUrl = devop_mode 
-      ? 'http://127.0.0.1:5000' + data.stlUrl
-      : 'https://justmfgflaskapp.azurewebsites.net/' + data.stlUrl;
-  try {
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      body: formData
-    });
+  function uploadAndLoadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
 
-    if (!response.ok) {
-      throw new Error(`Error: ${response.statusText}`);
-    }
+    fetch('http://127.0.0.1:5000/api/upload_file', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Error: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('STL URL:', data.stlUrl);
 
-    const data = await response.json();
+        // Load the STL model
+        const loader = new THREE.STLLoader();
+        loader.load('http://127.0.0.1:5000' + data.stlUrl, function (geometry) {
+            const material = new THREE.MeshPhongMaterial({ color: 0x0077ff, specular: 0x111111, shininess: 200 });
+            plate = new THREE.Mesh(geometry, material);
+            plate.scale.set(0.1, 0.1, 0.1);  // Adjust scale if needed
+            scene.add(plate);
+            if (data.edges) {
+                createEdgesFromBackend(data.edges);  // Call the function to create edges from backend data
+            }
+        });
 
-    // Check if there's an error
-    if (data.error) {
-      console.error('Error from server:', data.error);
-      return;
-    }
-
-    const rootNode = data.root_node;
-    // Process the root node and await traversal
-    await traverseAndLoad(rootNode, data, true);
-
-    console.log('All plates loaded and data object updated.');
-    console.log('Received data object:', data); // Verify the received data
-
-  } catch (error) {
-    console.error('Error loading STL:', error);
-  }
-}
-//------------------------------------------------------------------------------------------------------------------------------
-
-
-// Function to traverse the tree and load/create plates
-async function traverseAndLoad(node,dataObj,flatten = true) {
-  if (!flatten) {
-    // Asynchronous plate loading
-    totalPlates++;
-    loadPlate(node.face, node.hole_data,dataObj);
-  } else {
-    if (node.surface_type === "Cylindrical") {
-      console.log('Found cylindrical plate');
-      // Increment totalPlates for the plate being created synchronously
-      totalPlates++;
-      create_flat_plate(node.flatten_edges);
-      // Increment loadedPlates immediately since creation is synchronous
-      loadedPlates++;
-      checkAllPlatesLoaded(dataObj);
-    } else {
-      // Asynchronous plate loading for non-cylindrical plates
-      totalPlates++;
-      loadPlate(node.unfold_face, node.unfold_hole_data,dataObj);
-    }
-  }
-
-  // Recursively process children with the same flatten flag
-  if (node.children && node.children.length > 0) {
-    for (const child of node.children) {
-      await traverseAndLoad(child, dataObj, flatten);
-    }  
-  }
+        // Store and process the holes data
+        holes = data.holes;
+    })
+    .catch(error => console.error('Error loading STL:', error));
 }
 
-// Helper function to load a single plate
-function loadPlate(face, holeData,dataObj) {
-  return new Promise((resolve, reject)=>{
-    const stlUrl = `http://127.0.0.1:5000/output/${face}`;
-    
-    const loader = new THREE.STLLoader();
 
-    loader.load(
-      stlUrl,
-      function (geometry) {
-        const material = new THREE.MeshPhongMaterial({ color: 0x0077ff });
-        const plate = new THREE.Mesh(geometry, material);
-        plate.scale.set(scaling, scaling, scaling);  // Adjust scale if needed
-        platesGroup.add(plate); // Add to group
-        plates.push(plate);
-        holesData.push(holeData || []);
+function add_two_faces() {
+  // Define vertices for the horizontal plate (lying flat on the XZ-plane)
+  const face1Vertices = [
+      new THREE.Vector3(0, 0, 0),    // Face 1 Vertex 0 (XZ-plane)
+      new THREE.Vector3(4.5, 0, 0),  // Face 1 Vertex 1 (XZ-plane)
+      new THREE.Vector3(4.5, 0, 5),  // Face 1 Vertex 2 (XZ-plane)
+      new THREE.Vector3(0, 0, 5)     // Face 1 Vertex 3 (XZ-plane)
+  ];
 
-        loadedPlates++;
-        console.log(`Loaded plate: ${face} (${loadedPlates}/${totalPlates})`);
-        checkAllPlatesLoaded(dataObj);
-      },
-      undefined,
-      function (error) {
-        console.error(`Error loading STL file from ${stlUrl}:`, error);
-        loadedPlates++;
-        checkAllPlatesLoaded(dataObj);  // Even if a plate fails to load, proceed
-        resolve(); // Resolve to continue processing
+  // Define vertices for the vertical plate (standing on the YZ-plane)
+  const face2Vertices = [
+      new THREE.Vector3(5, 0.5, 0),    // Face 2 Vertex 0 (YZ-plane)
+      new THREE.Vector3(5, 5.5, 0),    // Face 2 Vertex 1 (YZ-plane)
+      new THREE.Vector3(5, 5.5, 5),    // Face 2 Vertex 2 (YZ-plane)
+      new THREE.Vector3(5, 0.5, 5)     // Face 2 Vertex 3 (YZ-plane)
+  ];
+
+  // Create mesh for the horizontal plate (Face 1)
+  const face1Geometry = createQuadFace(face1Vertices);
+  const face1Material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
+  const face1Mesh = new THREE.Mesh(face1Geometry, face1Material);
+  scene.add(face1Mesh);
+
+  // Create mesh for the vertical plate (Face 2)
+  const face2Geometry = createQuadFace(face2Vertices);
+  const face2Material = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+  const face2Mesh = new THREE.Mesh(face2Geometry, face2Material);
+  scene.add(face2Mesh);
+
+  // Add parametric cylinder to connect the edges
+  const cylinderGeometry = new THREE.ParametricGeometry(parametricCylinder, 100, 100);
+  const cylinderMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide });
+  const cylinderMesh = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+  scene.add(cylinderMesh);
+}
+
+// Parametric function for the cylindrical surface between the two edges of the faces
+function parametricCylinder(u, v, target) {
+  // Edge to connect on face1 (XZ-plane)
+  const edge1Start = new THREE.Vector3(4.5, 0, 0);  // Edge 1 of face 1 (XZ-plane)
+  const edge1End = new THREE.Vector3(4.5, 0, 5);    // Edge 2 of face 1 (XZ-plane)
+
+  // Edge to connect on face2 (YZ-plane)
+  const edge2Start = new THREE.Vector3(5, 0.5, 0);  // Edge 1 of face 2 (YZ-plane)
+  const edge2End = new THREE.Vector3(5, 0.5, 5);    // Edge 2 of face 2 (YZ-plane)
+
+  // Interpolate along the edges
+  const edge1Point = new THREE.Vector3().lerpVectors(edge1Start, edge1End, u);  // Point on edge 1
+  const edge2Point = new THREE.Vector3().lerpVectors(edge2Start, edge2End, u);  // Point on edge 2
+
+  // Calculate the midpoint between the edges
+  const midPoint = new THREE.Vector3().lerpVectors(edge1Point, edge2Point, v);
+
+  // Calculate the distance between the two edges (in Y-axis)
+  const edgeDistance = edge2Start.distanceTo(edge1Start);  // Distance between the two edges
+
+  // Ensure smooth start and end of curvature
+  const smoothFactor = (Math.cos((u - 0.5) * Math.PI) + 1) / 2;  // Smooth start and end transitions
+
+  // Adjust the curvature smoothly between the two faces with smoothFactor applied
+  const curveHeight = edgeDistance * smoothFactor * Math.sin(v * Math.PI);  // Adjusted smooth curvature
+
+  // Set the target position for the parametric surface point
+  target.set(midPoint.x, midPoint.y - curveHeight, midPoint.z);  // Elevate in Y direction based on calculated curvature
+}
+
+// Function to create a quad face (geometry)
+function createQuadFace(vertices) {
+  const geometry = new THREE.BufferGeometry();
+  const positions = [];
+  vertices.forEach(vertex => {
+      positions.push(vertex.x, vertex.y, vertex.z);
+  });
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+  // Define indices for two triangles to form the quad
+  const indices = [0, 1, 2, 2, 3, 0];
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+
+  return geometry;
+}
+
+
+function unwrapCylindricalSurface(face1Vertices, face2Vertices, curveHeight) {
+  const unwrappedVertices = [];
+
+  // For unwrapping, we map the cylindrical surface to a flat rectangle
+  const circumference = 2 * Math.PI * curveHeight;  // The "length" of the unwrapped cylinder
+  const height = 10;  // The height of the cylinder (distance between face1 and face2)
+
+  // Unwrapping each edge of the cylindrical surface as if it's being flattened
+  const uSegments = 100;  // Number of horizontal segments for the unwrapping
+  const vSegments = 10;   // Number of vertical segments
+
+  for (let i = 0; i <= uSegments; i++) {
+      const u = i / uSegments;
+      const x = u * circumference;  // The unwrapped "length" mapped onto the X-axis
+
+      for (let j = 0; j <= vSegments; j++) {
+          const v = j / vSegments;
+          const y = v * height;  // The height mapped to the Y-axis
+
+          // For unwrapping, we set z = 0 (flattened)
+          unwrappedVertices.push(new THREE.Vector3(x, y, 0));
       }
-    );
+  }
+
+  return unwrappedVertices;
+}
+
+function unwrapFullShape(face1Vertices, face2Vertices, curveHeight) {
+  // Unwrap the cylindrical surface into a flat plane
+  const unwrappedCylinder = unwrapCylindricalSurface(face1Vertices, face2Vertices, curveHeight);
+
+  // Project the upper plate onto the unwrapped surface
+  const unwrappedUpperPlate = flattenUpperPlate(face2Vertices);  // Use the flattening logic
+
+  // Combine both unwrapped cylinder and upper plate
+  const allUnwrappedVertices = [...unwrappedCylinder, ...unwrappedUpperPlate];
+
+  // Create a geometry from the unwrapped shape
+  const geometry = new THREE.BufferGeometry();
+  const positions = [];
+
+  allUnwrappedVertices.forEach(vertex => {
+      positions.push(vertex.x, vertex.y, vertex.z);
+  });
+
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();  // Compute normals for correct shading
+
+  // Create a material and mesh for the unwrapped shape
+  const material = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(geometry, material);
+  scene.add(mesh);
+}
+
+// Function to flatten the upper plate onto the XY-plane
+function flattenUpperPlate(vertices) {
+  return vertices.map(vertex => {
+      return new THREE.Vector3(vertex.x, vertex.y, 0);  // Set Z = 0 for flattening
   });
 }
 
-// Function to create a flat plate synchronously
-function create_flat_plate(edges) {
-  const edge1 = edges[0];
-  const edge2 = edges[1];
 
-  // Create vertices from the edges
-  const face1Vertices = [
-    new THREE.Vector3(edge1[0][0], edge1[0][1], edge1[0][2]), // First point of edge1
-    new THREE.Vector3(edge1[1][0], edge1[1][1], edge1[1][2]), // Second point of edge1
-    new THREE.Vector3(edge2[1][0], edge2[1][1], edge2[1][2]), // Second point of edge2
-    new THREE.Vector3(edge2[0][0], edge2[0][1], edge2[0][2]), // First point of edge2
-  ];
 
-  // Create a geometry for the face (quad)
-  const face1Geometry = new THREE.BufferGeometry().setFromPoints(face1Vertices);
 
-  // Create indices for two triangles forming a quad
-  const indices = [0, 1, 2, 2, 3, 0];
-  face1Geometry.setIndex(indices);
 
-  // Compute normals for proper lighting (important for materials like MeshPhongMaterial)
-  face1Geometry.computeVertexNormals();
-
-  // Create the material
-  const face1Material = new THREE.MeshPhongMaterial({ color: 0xff0000, side: THREE.DoubleSide });
-
-  // Create the mesh
-  const face1Mesh = new THREE.Mesh(face1Geometry, face1Material);
-
-  // Scale down the mesh to 0.1 in x, y, and z directions
-  face1Mesh.scale.set(scaling, scaling, scaling);
-
-  // Optionally, set a name or user data for identification
-  face1Mesh.name = "FlatPlate";
-
-  // Add the mesh to the plates group
-  platesGroup.add(face1Mesh);
-
-  // Store the plate in the plates array
-  plates.push(face1Mesh);
-
-  // Since create_flat_plate is synchronous, you can also add hole data if available
-  // For example, if edges contain hole data, modify accordingly
-  holesData.push([]); // Assuming no hole data for flat plates; adjust as needed
-
-  console.log('Flat plate created and added to the scene.');
-}
-
-// Function to check if all plates have been loaded
-function checkAllPlatesLoaded(dataObj) {
-  if (loadedPlates === totalPlates) {
-    console.log("All plates have been loaded or created!");
-    scene.updateMatrixWorld(true); // Ensure all world matrices are updated
-    const finalBoundingBox = getBoundingBoxForPlates(); // Calculate bounding box
-    showBoundingBox(finalBoundingBox);                // Show the bounding box in the scene
-    // Update the data object with box_size based on the bounding box
-    dataObj.root_node.box_size = {
-      width: (finalBoundingBox.max.x - finalBoundingBox.min.x)/scaling,
-      height: (finalBoundingBox.max.y - finalBoundingBox.min.y)/scaling,
-      depth: (finalBoundingBox.max.z - finalBoundingBox.min.z)/scaling
-    };
-    console.log('Data object updated with bounding box:', dataObj);
-  }
-}
-
-// Function to calculate the bounding box dimensions for the added plates
-function getBoundingBoxForPlates() {
-  const boundingBox = new THREE.Box3().setFromObject(platesGroup);  // Create bounding box from group
-
-  // Calculate the size of the final bounding box
-  const size = new THREE.Vector3();
-  boundingBox.getSize(size);
-
-  console.log('Bounding box size:', size);
-  console.log('Bounding box min:', boundingBox.min);
-  console.log('Bounding box max:', boundingBox.max);
-
-  return boundingBox;
-}
-
-// Function to visualize the bounding box in the scene
-function showBoundingBox(boundingBox) {
-  // Remove any existing bounding boxes to prevent duplicates
-  const existingHelpers = scene.children.filter(child => child.type === "Box3Helper");
-  existingHelpers.forEach(helper => scene.remove(helper));
-
-  // Create a Box3Helper to visualize the bounding box
-  const boxHelper = new THREE.Box3Helper(boundingBox, 0xffff00);  // Yellow color
-
-  // Add the box helper to the scene
-  scene.add(boxHelper);
-
-  console.log("Bounding box has been added to the scene.");
-}
 
   document.getElementById('container').addEventListener('click', (event) => {
     let hasHoleHighlighted = highlightedHoleMesh !== null;
@@ -372,23 +354,17 @@ function onMouseMove(event) {
 
 
   // Perform raycasting only if the plate is defined
-  if (plates) {
+  if (plate) {
 
     raycaster.setFromCamera(mouse, camera);
     //visualizeRaycasting();  // Visualize the raycaster's direction
 
     // Check if the ray intersects with the 3D object (plate)
-      // Use the plates array here
-      const intersects = raycaster.intersectObjects( plates );
-
-      if ( intersects.length > 0 ) {
-          const intersect = intersects[0];
-          const point = intersect.point;
-          plate = intersect.object;
-  
-          // Find the closest hole on the intersected plate
-          const closestHole = findClosestHole(point);
-  
+    let intersects = raycaster.intersectObject(plate, true);
+    // console.log("Raycaster Intersects:", intersects);
+    if (intersects.length > 0) {
+        // Find the nearest hole to the intersection point
+        let closestHole = findClosestHole(intersects[0].point);
         
         if (closestHole) {
             // Highlight corresponding hole in dropdown
@@ -398,7 +374,7 @@ function onMouseMove(event) {
          showTooltip(event, closestHole);
         } else {
           removeHighlightFromModel();
-            // Remove highlight if no hole is detected
+          //removeHighlightFromDropdown();  // Remove highlight if no hole is detected
           //clearHoleInfo();  // Clear hole info if no hole is detected
           hideTooltip();
         }
@@ -412,19 +388,18 @@ function onMouseMove(event) {
         } 
     } else {
       removeHighlightFromModel();
-      
+      //removeHighlightFromDropdown();
       removeHighlightFromEdge();  // Remove highlight if no edge is detected
       hideTooltip();
     }
   } else {
     removeHighlightFromModel();
-    
+    //removeHighlightFromDropdown();
     removeHighlightFromEdge();  // Remove highlight if no edge is detected
     hideTooltip();
   }
 
 }
-
 function visualizeRaycasting() {
   // Remove existing arrow helper to avoid stacking
   if (window.arrowHelper) {
@@ -437,9 +412,11 @@ function visualizeRaycasting() {
 }
 
 
+
 function findClosestHole(point) {
   let closestHole = null;
   let minDistance = Infinity;  // Minimum "effective" distance
+
 
   // Scale the intersection point back to the original model size
   const unscaledIntersectionPoint = new THREE.Vector3(
@@ -448,40 +425,30 @@ function findClosestHole(point) {
       point.z / plate.scale.z
   );
 
-  // Retrieve the hole data associated with this plate
-  const plateIndex = plates.indexOf(plate);
-  if (plateIndex === -1) {
-      console.error("Plate not found in plates array");
-      return null;
-  }
-
-  const holeData = holesData[plateIndex];  // Get holes data for this plate
 
   // Iterate over all holes in the original unscaled space
-  holeData.forEach(function (hole) {
+  holes.forEach(function (hole, index) {
       const holePosition = new THREE.Vector3(hole.position.x, hole.position.y, hole.position.z);
 
-      // Calculate the distance between the intersection point and the hole center
+      // Calculate the distance between the intersection point (scaled up) and the hole center
       const distanceToCenter = holePosition.distanceTo(unscaledIntersectionPoint);
 
-      // Calculate the hole's radius
+      // Calculate the hole's radius (no scaling required, since we're comparing in unscaled space)
       const holeRadius = hole.diameter / 2;
 
       // Effective distance: how close the point is to the edge of the hole
       const effectiveDistance = distanceToCenter - holeRadius;
 
       // If the effective distance is smaller than both the threshold and the minimum effective distance
-      if (effectiveDistance < 10 && Math.abs(effectiveDistance) < minDistance) {  // Adjust threshold as needed
+      if (effectiveDistance < 10 && Math.abs(effectiveDistance) < minDistance) {  // Point is within the hole's radius
           closestHole = hole;  // Update the closest hole
           minDistance = Math.abs(effectiveDistance);  // Update the minimum distance
+
       }
   });
-
-  detectedHole = closestHole;  // If you have a global variable for the detected hole
-  console.log('found closes hole at ',closestHole)
+  detectedHole = closestHole;
   return closestHole;
 }
-
 
 
 
@@ -509,6 +476,37 @@ function showTooltip(event, hole) {
     tooltip.style.display = 'none';
   }
 
+
+// Function to highlight the corresponding hole in the dropdown
+function highlightHoleInDropdown(hole) {
+    const holeDataContainer = document.getElementById('hole-data');
+    const dropdownSections = holeDataContainer.getElementsByClassName('dropdown-section');
+
+    // Remove existing highlights
+    removeHighlightFromDropdown();
+
+    // Loop through dropdown sections and highlight the matching hole
+    Array.from(dropdownSections).forEach((section) => {
+        const holeItems = section.getElementsByTagName('li');
+        Array.from(holeItems).forEach((item) => {
+            if (item.textContent.includes(`(${hole.position.x.toFixed(2)}, ${hole.position.y.toFixed(2)}, ${hole.position.z.toFixed(2)})`)) {
+                item.style.backgroundColor = 'yellow';  // Highlight the corresponding hole
+                lockedDropdownItem = item;  // Lock this item
+            }
+        });
+    });
+}
+
+// Function to remove the highlight from the dropdown
+function removeHighlightFromDropdown() {
+    const holeDataContainer = document.getElementById('hole-data');
+    const highlightedItems = holeDataContainer.querySelectorAll('li[style*="background-color"]');
+
+    // Remove the background color from all highlighted items
+    Array.from(highlightedItems).forEach(item => {
+        item.style.backgroundColor = '';
+    });
+}
 
 // Function to highlight the hole in the 3D model
 function highlightHoleInModel(hole) {
@@ -548,7 +546,7 @@ function toggleHoleLock(hole) {
         // Unlock the hole if it was already selected
         selectedHole = null;
         removeHighlightFromModel();
-        
+        //removeHighlightFromDropdown();
         hideStudUploadOptions();       // Show "Stud Upload" and "Edit Diameter" when a hole is selected
         //hideWeldFoldOptions();  
 
@@ -594,11 +592,7 @@ document.getElementById('stud-file-input').addEventListener('change', function (
     const formData = new FormData();
     formData.append('file', studFile);
 
-    // Use the appropriate base URL depending on the devop_mode
-    const studUrl = devop_mode 
-      ? 'http://127.0.0.1:5000/api/upload_stud'
-      : 'https://justmfgflaskapp.azurewebsites.net//api/upload_stud';
-    fetch(studUrl, {
+    fetch('http://127.0.0.1:5000/api/upload_stud', {
         method: 'POST',
         body: formData,
         headers: {
@@ -615,12 +609,8 @@ document.getElementById('stud-file-input').addEventListener('change', function (
         console.log('STL URL for Stud:', data.stlUrl);
 
         // Load the STL model of the stud
-                // Use the appropriate base URL depending on the devop_mode
-        const stlUrl = devop_mode 
-            ? 'http://127.0.0.1:5000' + data.stlUrl
-            : 'https://justmfgflaskapp.azurewebsites.net/' + data.stlUrl;
         const loader = new THREE.STLLoader();
-        loader.load(stlUrl, function (geometry) {
+        loader.load('http://127.0.0.1:5000' + data.stlUrl, function (geometry) {
             placeStudInHole(geometry, selectedHole);  // Place the stud in the selected hole
         });
     })
@@ -721,7 +711,7 @@ function reloadModifiedModel(stlUrl) {
   loader.load(stlUrl, function (geometry) {
       const material = new THREE.MeshPhongMaterial({ color: 0x0077ff, specular: 0x111111, shininess: 200 });
       plate = new THREE.Mesh(geometry, material);
-      plate.scale.set(scaling, scaling, scaling);  // Adjust scaling if necessary
+      plate.scale.set(0.1, 0.1, 0.1);  // Adjust scaling if necessary
       scene.add(plate);
       console.log('Updated STL model loaded and added to the scene.');
   }, 
@@ -757,6 +747,7 @@ function updateHoleInModel(holeIndex, newDiameter) {
   // Add the updated hole to the scene
   scene.add(highlightedHoleMesh);
 }
+
 
 
 function onWindowResize() {
@@ -827,7 +818,6 @@ function processHoleData(holes) {
       });
   }
 }
-
 // Function to display hole information in the hole-data container
 function displayHoleInfo(hole) {
     const holeDataContainer = document.getElementById('hole-data');

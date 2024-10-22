@@ -6,6 +6,7 @@ from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt
 from OCC.Extend.ShapeFactory import get_aligned_boundingbox  # Import for getting bounding box
+from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
 
 # # Initialize the display only once
 # display, start_display, add_menu, add_function_to_menu = init_display()
